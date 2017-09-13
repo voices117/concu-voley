@@ -92,6 +92,8 @@ help:
 	@echo "Source files for each binary are expected to be in \033[1;92m$(SRCDIR)/\033[0m\033[1;31m<name>\033[0m."
 	@echo "Additional source files in \033[1;92m$(LIBSDIR)\033[0m are available for every binary."
 	@echo
+	@echo "Compiled binaries can be found in \033[1;92m$(TARGETDIR)\033[0m."
+	@echo
 
 # clean objects and binaries
 clean:
