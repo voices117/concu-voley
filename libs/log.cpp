@@ -26,6 +26,7 @@ Log::Log() {
  * Implementation of the output operator for stream manipulators.
  */
 Log& Log::operator<<( std::ostream& ( *manipulator )( std::ostream& ) ) {
+    // TODO: use internal vector
     std::cout << manipulator;
     return *this;
 }
