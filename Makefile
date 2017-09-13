@@ -80,13 +80,17 @@ tests:
 
 # shows usage
 help:
-	@echo "To compile the binaries:"
+	@echo "To compile all binaries:"
 	@echo
-	@echo "\t\033[1;92mmake $(TARGET)\033[0m"
+	@echo "\t\033[1;92m$$ make\033[0m"
 	@echo
-	@echo "To compile and run the unit tests:"
+	@echo "To compile just one binary:"
 	@echo
-	@echo "\t\033[1;92mmake tests\033[0m"
+	@echo "\t\033[1;92m$$ make bin-\033[1;31m<name>\033[0m"
+	@echo
+	@echo "where \033[1;31m<name>\033[0m is the name of the binary to compile."
+	@echo "Source files for each binary are expected to be in \033[1;92m$(SRCDIR)/\033[0m\033[1;31m<name>\033[0m."
+	@echo "Additional source files in \033[1;92m$(LIBSDIR)\033[0m are available for every binary."
 	@echo
 
 # clean objects and binaries
