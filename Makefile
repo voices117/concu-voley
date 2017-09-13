@@ -1,8 +1,10 @@
-# binary file name
-TARGET      := voley
+# binaries file names
+# each binary source code is expected to be in $(SRCDIR)/<binary>
+TARGET      := main
 
 # makefile parameters
 SRCDIR      := src
+LIBSDIR     := libs
 TESTDIR     := tests
 BUILDDIR    := int
 TARGETDIR   := target
@@ -12,7 +14,7 @@ SRCEXT      := cpp
 CC          := g++
 CFLAGS      := -g3 -std=c++14 -Wall -Wpedantic -Werror -pg
 LIB         := m
-INC         := /usr/local/include
+INC         := /usr/local/include libs
 DEFINES     :=
 
 
@@ -23,11 +25,12 @@ DEFINES     :=
 # sets the src directory in the VPATH
 VPATH := $(SRCDIR)
 
-# sets the build directory based on the profile
-BUILDDIR := $(BUILDDIR)/$(PROFILE)
+# sets the build directory based on the binary
+BUILDDIR := $(BUILDDIR)/$(BIN)
 
 # source files
-SRCS := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
+SRCS := $(shell find $(SRCDIR)/$(BIN) -type f -name *.$(SRCEXT))
+SRCS += $(shell find $(LIBSDIR) -type f -name *.$(SRCEXT))
 
 # object files
 OBJS := $(patsubst %,$(BUILDDIR)/%,$(SRCS:.$(SRCEXT)=.o))
@@ -48,7 +51,7 @@ ifeq ($(MAKECMDGOALS),$(TARGETDIR)/tests)
 	VPATH := $(TESTDIR) $(VPATH)
 
 	# test sources
-	TEST_SRCS := $(shell find $(TESTDIR) -type f -name *.$(SRCEXT))
+	TEST_SRCS := $(shell find $(TESTDIR)/$(BIN) -type f -name *.$(SRCEXT))
 
 	# test objects
 	OBJS := $(patsubst %,$(BUILDDIR)/%,$(TEST_SRCS:.$(SRCEXT)=.o)) $(OBJS)
@@ -64,17 +67,20 @@ LIB := $(addprefix -l,$(LIB))
 DEFINES := $(addprefix -D,$(DEFINES))
 
 
-# default: compiles the binary
-$(TARGET):
-	@$(MAKE) $(TARGETDIR)/$(TARGET) PROFILE=$(TARGET)
+# default: compiles all the binaries
+all: $(addprefix bin-,$(TARGET))
+
+# compiles the binary
+bin-%:
+	@$(MAKE) $(TARGETDIR)/$* BIN=$*
 
 # compiles and runs the unit tests
 tests:
-	@$(MAKE) $(TARGETDIR)/tests PROFILE=tests
+	@$(MAKE) $(TARGETDIR)/tests BIN=tests
 
 # shows usage
 help:
-	@echo "To compile the binary:"
+	@echo "To compile the binaries:"
 	@echo
 	@echo "\t\033[1;92mmake $(TARGET)\033[0m"
 	@echo
@@ -93,8 +99,8 @@ dirs:
 	@mkdir -p $(BUILDDIR)
 
 # INTERNAL: builds the binary
-$(TARGETDIR)/$(TARGET): $(OBJS) | dirs
-	@$(CC) $(CFLAGS) $(INC) $(DEFINES) $^ $(LIB) -o $(TARGETDIR)/$(TARGET)
+$(TARGETDIR)/$(BIN): $(OBJS) | dirs
+	@$(CC) $(CFLAGS) $(INC) $(DEFINES) $^ $(LIB) -o $@
 	@echo "LD $@"
 
 # INTERNAL: builds and runs the unit tests
@@ -110,7 +116,7 @@ $(BUILDDIR)/%.o: %.$(SRCEXT)
 	@$(CC) $(CFLAGS) $(INC) $(DEFINES) $(LIB) -c -o $@ $<
 
 
-.PHONY: clean dirs tests $(TARGET)
+.PHONY: clean dirs tests all
 
 # includes generated dependency files
 -include $(OBJS:.o=.d)
