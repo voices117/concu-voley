@@ -13,7 +13,10 @@
 #define XSTR( s ) STR( s )
 
 /** Wrapper for strings so the output is ANSI colored. */
-#define BLUE_TEXT( text ) "\x1B[1;92m[ " text " ]\x1B[0m "
+#define GREEN_TEXT( text ) "\x1B[1;92m[ " text " ]\x1B[0m "
+
+/** Wrapper for strings so the output is ANSI colored. */
+#define BLUE_TEXT( text ) "\x1B[1;34m[ " text " ]\x1B[0m "
 
 
 #endif

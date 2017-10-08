@@ -1,0 +1,35 @@
+{
+   _dl_init
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   obj:/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.21
+   fun:call_init.part.0
+   fun:call_init
+   fun:_dl_init
+   obj:/lib/x86_64-linux-gnu/ld-2.23.so
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+{
+   _dl_init2
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:monstartup
+   fun:__gmon_start__
+   obj:/usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so
+   obj:/lib/x86_64-linux-gnu/ld-2.23.so
+   fun:call_init.part.0
+   fun:call_init
+   fun:_dl_init
+   obj:/lib/x86_64-linux-gnu/ld-2.23.so
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}

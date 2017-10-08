@@ -1,7 +1,3 @@
-# binaries file names
-# each binary source code is expected to be in $(SRCDIR)/<binary>
-TARGET      := main
-
 # makefile parameters
 SRCDIR      := src
 LIBSDIR     := libs
@@ -15,12 +11,16 @@ CC          := g++
 CFLAGS      := -g3 -std=c++14 -Wall -Wpedantic -Werror -pg
 LIB         := m
 INC         := /usr/local/include libs
-DEFINES     :=
+DEFINES     := GLIBCXX_FORCE_NEW
 
 
 #---------------------------------------------------------------------------------
 # DO NOT EDIT BELOW THIS LINE
 #---------------------------------------------------------------------------------
+
+# binaries file names
+# each binary source code is expected to be in $(SRCDIR)/<binary>
+TARGET := $(patsubst $(SRCDIR)/%/,%,$(dir $(wildcard $(SRCDIR)/*/)))
 
 # sets the src directory in the VPATH
 VPATH := $(SRCDIR)

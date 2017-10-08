@@ -15,8 +15,8 @@ int main( int argc, const char *argv[] )
     LOG << "Init" << std::endl;
 
     /* allocates resources */
-    Queue<int>::Create( QUEUE_FILE );
+    IPC::Queue<int>::Create( QUEUE_FILE );
 
     /* destroys resources */
-    Queue<int>::Destroy( QUEUE_FILE );
+    IPC::Queue<int>::Destroy( QUEUE_FILE );
 }
