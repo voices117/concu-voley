@@ -50,14 +50,18 @@ public:
     ArgParser( int argc, const char **argv );
     ~ArgParser();
 
-    /** DO NOT USE: use macro \a get_option ot \a get_optional instead. */
-    template<typename T> T _get_option( const std::string& opt, const std::string& type );
-    template<typename T> T _get_optional( const std::string& opt, const T& def, const std::string& type );
-
+    /** Returns \c true if the given option is present. */
+    bool is_present( const std::string& option ) const;
+    
+    /** DO NOT USE: use macro \a get_option or \a get_optional instead. */
+    template<typename T> T _get_option( const std::string& option, const std::string& type ) const;
+    template<typename T> T _get_optional( const std::string& option, const T& def, const std::string& type ) const;
+    
 private:
     int argc { -1 };
     const char **argv { NULL };
 
+    int opt_index( const std::string& option ) const;
 };
 
 
@@ -77,35 +81,46 @@ ArgParser::~ArgParser() {
 
 
 /**
+ * Returns \c true if the given option is present.
+ * 
+ * \param option Option name (for example, --option).
+ * 
+ * \return true  The option was found.
+ * \return false The option was not found.
+ */
+bool ArgParser::is_present( const std::string& option ) const {
+    return ( this->opt_index( option ) >= 0 );
+}
+
+
+/**
  * Finds the option specified and returns the associated value.
  * If not found, or it's not of the correct type, throws an exception.
  * 
  * \param option Option name.
  * \param type The expected type as string.
  */
-template<typename T> T ArgParser::_get_option( const std::string& option, const std::string& type ) {    
+template<typename T> T ArgParser::_get_option( const std::string& option, const std::string& type ) const {
     /* finds the option name into the list of command line arguments */
-    int i = 0;
-    while( i < this->argc ) {
-        if( std::string( this->argv[i] ) == option ) {
-            if( argc > i + 1 ) {
-                std::istringstream ss{ this->argv[i + 1] };
-                
-                T value;
-                ss >> value;
-                
-                if( !ss )
-                throw ArgParser::Error( "Option " + option + " should be of type " + type );
-                return value;
-            } else {
-                throw ArgParser::Error( "Expected a value of type " + type + " with option " + option );
-            }
-        }
-        i += 1;
-    }
+    int i = this->opt_index( option );
+    if( i < 0 )
+        /* not found */
+        throw ArgParser::Error( "Expected option " + option + " [" + type + "]" );
+
+    /* checks if there's a parameter after the option (--option param) */
+    if( argc <= i + 1 )
+        throw ArgParser::Error( "Expected a value of type " + type + " with option " + option );
     
-    /* not found */
-    throw ArgParser::Error( "Expected option " + option + " [" + type + "]" );
+    /* the option was found and has a parameter, now checks the type */
+    std::istringstream ss{ this->argv[i + 1] };
+    
+    T value;
+    ss >> value;
+    
+    if( !ss )
+        throw ArgParser::Error( "Option " + option + " should be of type " + type );
+
+    return value;
 }
 
 /**
@@ -117,12 +132,31 @@ template<typename T> T ArgParser::_get_option( const std::string& option, const 
  * \param def Default value in case is not present.
  * \param type The expected type as string.
  */
-template<typename T> T ArgParser::_get_optional( const std::string& option, const T& def, const std::string& type ) {
+template<typename T> T ArgParser::_get_optional( const std::string& option, const T& def, const std::string& type ) const {
     try {
         return this->_get_option<T>( option, type );
     } catch( const ArgParser::Error& e ) {
         return def;
     }
 }
+
+/**
+ * Returns the index in the arguments array of the given option (or -1 if not found).
+ * 
+ * \param option Option name.
+ * \return int   The index of the option.
+ */
+int ArgParser::opt_index( const std::string& option ) const {
+    int i = 0;
+    while( i < this->argc ) {
+        if( std::string( this->argv[i] ) == option )
+            return i;
+        i += 1;
+    }
+
+    /* not found */
+    return -1;
+}
+
 
 #endif
