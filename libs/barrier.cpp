@@ -16,12 +16,14 @@
 void IPC::Barrier::Create( const std::string& filename ) {
     key_t key = ftok( filename.c_str(), 0 );
     if( key < 0 )
-        throw IPC::Barrier::Error( static_cast<std::string>( "ftok" ) + strerror( errno ) );
+        throw IPC::Barrier::Error( static_cast<std::string>( "ftok: " ) + strerror( errno ) );
 
     /* creates the semaphore */
     int semid = semget( key, 1, 0644 | IPC_CREAT | IPC_EXCL );
     if( semid < 0 )
-        throw IPC::Barrier::Error( static_cast<std::string>( "semget" ) + strerror( errno ) );
+        throw IPC::Barrier::Error( static_cast<std::string>( "semget: " ) + strerror( errno ) );
+
+    LOG_DBG << "semid: " << semid << std::endl;
 }
 
 /**
@@ -43,7 +45,7 @@ void IPC::Barrier::Destroy( const std::string& filename ) {
         return;
     }
 
-    LOG_DBG << "destroy" << std::endl;
+    LOG_DBG << "destroy: " << semid << std::endl;
 
     semctl( semid, 0, IPC_RMID, NULL );
 }
@@ -60,7 +62,7 @@ IPC::Barrier::Barrier( const std::string& filename, size_t n ) : n{n} {
         throw IPC::Barrier::Error( static_cast<std::string>( "ftok: " ) + strerror( errno ) );
 
     /* opens the semaphore (expecting it's already created) */
-    this->semid = semget( key, 1, 0644 | IPC_CREAT );
+    this->semid = semget( key, 1, 0644 );
     if( this->semid < 0 )
         throw IPC::Barrier::Error( static_cast<std::string>( "semget: " ) + strerror( errno ) );
 
@@ -114,7 +116,7 @@ void IPC::Barrier::wait() {
 
     int rv = semop( this->semid, &sops, 1 );
     if( rv < 0 )
-        throw IPC::Barrier::Error( static_cast<std::string>( "wait" ) + strerror( errno ) );
+        throw IPC::Barrier::Error( static_cast<std::string>( "wait: " ) + strerror( errno ) );
 }
 
 /**

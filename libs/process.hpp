@@ -70,6 +70,15 @@ namespace IPC {
         pid_t ppid{-1};
 
     };
+
+    
+    /**
+     * Wrapper to fork + execve similar to Process.
+     */
+    class ExecProcess {
+    public:
+        
+    };
 }
 
 #endif
