@@ -5,8 +5,9 @@
 #include "functional"
 #include "ipc.hpp"
 #include "log.hpp"
+#include "match.hpp"
 #include "process.hpp"
-#include "signal_handler.hpp"
+#include "sigint_handler.hpp"
 #include <iostream>
 #include <unistd.h>
 #include <vector>
@@ -14,38 +15,11 @@
 
 using std::size_t;
 using std::string;
+using std::endl;
 
 /* IO FIFOs */
-static const string INPUT = "/tmp/match_input";
-static const string OUTPUT = "/tmp/match_output";
-
-
-/**
- * Handler for SIGINT signals.
- */
-class SIGINT_Handler : public EventHandler {
-
-private:
-    bool quit{ false };
-
-public:
-
-    SIGINT_Handler() {
-    }
-
-    ~SIGINT_Handler() {
-    }
-
-    virtual int handle_signal( int signum ) override {
-        this->quit = true;
-        return 0;
-    }
-
-    bool has_to_quit() const {
-        return this->quit;
-    }
-
-};
+static const string INPUT = "/tmp/match_in";
+static const string OUTPUT = "/tmp/match_out";
 
 
 /**
@@ -54,26 +28,29 @@ public:
  * 
  * \param row The row of the queue.
  * \param eh Event handler for the received signals.
- * \param barrier Initialization barrier for the parent process.
  * \param input Name of the input Queue.
  * \param output Name of the output Queue.
  */
-void _consume_matches( int row, SIGINT_Handler& eh, IPC::Barrier& barrier, const string& input, const string& output ) {
+void _consume_matches( int row, SIGINT_Handler& eh, const string& input, const string& output ) {
     try {
-        IPC::Queue<int> in( input, IPC::QueueMode::read );
-        IPC::Queue<float> out( output, IPC::QueueMode::write );
-
-        /* signals the parent process that the queues are already open */
-        barrier.signal();
+        IPC::Queue<Match> in( input, IPC::QueueMode::read );
+        IPC::Queue<MatchResult> out( output, IPC::QueueMode::write );
 
         while( !eh.has_to_quit() ) {
-            int t = in.remove();
+            Match m = in.remove();
+            MatchResult r;
 
-            float rv = 3.15 * t;
-            out.insert( rv );
+            sleep(1);
+
+            r.match = m;
+            r.status = Status::played;
+            r.team1_points = m.team2.player1;
+            r.team2_points = m.team1.player1;
+
+            out.insert( r );
         }
     } catch( IPC::QueueError& e ) {
-        LOG << e.what() << std::endl;
+        LOG << e.what() << endl;
     } catch ( IPC::QueueEOF& e ) {}
 }
 
@@ -92,8 +69,6 @@ void _create_courts( size_t nrows,
                      const string& input,
                      const string& output,
                      SIGINT_Handler& eh ) {
-    IPC::Barrier barrier{ "./target/match", nrows * ncols };
-
     /* stores the sub processes in a vector so they are destroyed when this function exits */
     std::vector<IPC::Process> childs;
 
@@ -103,36 +78,20 @@ void _create_courts( size_t nrows,
             auto callback = std::bind( _consume_matches,
                                        i,
                                        eh,
-                                       barrier,
                                        input,
                                        output );
             childs.push_back( IPC::Process{ callback } );
         }
     }
-
-    /* creates the queues */
-    IPC::Queue<int> tasks( input, IPC::QueueMode::write );
-    IPC::Queue<float> results( output, IPC::QueueMode::read );
-
-    /* waits until all processes are intialized */
-    barrier.wait();
-
-    /* inserts some data */
-    for( size_t i = 0; i < 10; i++ ) {
-        tasks.insert( i * 3 );
-    }
-
-    /* reads the results */
-    for( size_t i = 0; i < 10; i++ )
-        ( void )results.remove();
 }
 
 
 int main( int argc, const char *argv[] ) {
     int rv = 0;
+    Log::get_instance().set_level( Log::Level::debug );
 
     try {
-        Log::get_instance().set_level( Log::Level::debug );
+        LOG_DBG << "begin" << endl;
 
         /* parses the options from the command line arguments */
         ArgParser p{ argc, argv };
@@ -145,31 +104,32 @@ int main( int argc, const char *argv[] ) {
         SIGINT_Handler eh;
         SignalHandler::get_instance()->add_handler( SIGINT, &eh );
         SignalHandler::get_instance()->add_handler( SIGPIPE, &eh );
+        SignalHandler::get_instance()->add_handler( SIGCHLD, &eh );
+        SignalHandler::get_instance()->add_handler( SIGTERM, &eh );
 
         /* creates the IPC resources */
-        IPC::Resource<IPC::Queue<int>> input_queue{ input };
-        IPC::Resource<IPC::Queue<float>> output_queue{ output };
-        IPC::Resource<IPC::Barrier> barrier{ argv[0] };
+        //IPC::Resource<IPC::Queue<int>> input_queue{ input };
+        //IPC::Resource<IPC::Queue<float>> output_queue{ output };
         
         /* creates the processes for the matches */
         _create_courts( nrows, ncols, input, output, eh );
-        
+
     } catch( const ArgParser::Error& e ) {
-        LOG << e.what() << std::endl;
+        std::cout << argv[0] << " " << e.what() << endl;
         rv = 1;
     } catch( const IPC::QueueError& e ) {
-        LOG << "Queue error: " << e.what() << std::endl;
+        LOG << "Queue error: " << e.what() << endl;
         rv = 2;
     } catch( const IPC::QueueEOF& e ) {
-        LOG << "Queue EOF" << std::endl;
+        LOG << "Queue EOF" << endl;
         rv = 3;
     } catch( const IPC::Barrier::Error& e) {
-        LOG << "Barrier error: " << e.what() << std::endl;
+        LOG << "Barrier error: " << e.what() << endl;
         rv = 4;
     } catch( const IPC::Process::Exit& e ) {
         /* a forked process has finished, this is not an error */
     } catch( const IPC::Error& e ) {
-        LOG << "IPC Error: " << e.what() << std::endl;
+        LOG << "IPC Error: " << e.what() << endl;
         rv = 5;
     }
 
