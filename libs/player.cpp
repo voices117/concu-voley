@@ -26,6 +26,10 @@ void PlayersTable::add_player() {
     this->players.push_back( p );
 }
 
+bool Player::has_played_with( Player& other ) const {
+    return ( this->pairs.find( other.id ) != this->pairs.end() );
+}
+
 /**
  * Gets a player from the table.
  * 

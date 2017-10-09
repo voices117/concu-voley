@@ -80,26 +80,11 @@ static Team find_team( PlayersTable& players ) {
             continue;
 
         /* finds another player */
-        player_t other_id = 0;
-        for( player_t id: p1.pairs ) {
-            Player& p2 = players.get_player( other_id );
-            
-            if( other_id < id && p2.state == PlayerState::idle ) {
-                p1.state = PlayerState::playing;
-                p2.state = PlayerState::playing;
-                return Team{ p1.id, p2.id };
-            } else {
-                other_id++;
-            }
-        }
-
-        /* no pair available for this player */
-        if( other_id >= players.size() ) {
-            continue;
-        }
-
-        for( player_t id = other_id; id < players.size(); id++ ) {
+        for( player_t id = 0; id < players.size(); id++ ) {
             Player& p2 = players.get_player( id );
+            if( p2.state != PlayerState::idle || p1.has_played_with( p2 ) )
+                continue;
+
             p1.state = PlayerState::playing;
             p2.state = PlayerState::playing;
             return Team{ p1.id, p2.id };
@@ -116,7 +101,7 @@ static Team find_team( PlayersTable& players ) {
 static void _produce_matches( PlayersTable& players, const string& consumer_name ) {
     IPC::Queue<Match> consumer{ consumer_name, IPC::QueueMode::write };
     
-    for( size_t i = 0; i < 11; i++ ) {
+    for( size_t i = 0; i < 10; i++ ) {
         Match m;
         m.team1 = find_team( players );
         m.team2 = find_team( players );

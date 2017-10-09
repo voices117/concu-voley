@@ -18,7 +18,8 @@ enum class PlayerState {
 };
 
 
-struct Player {
+class Player {
+public:
     /** The ID of the player represented. */
     player_t id;
 
@@ -27,6 +28,8 @@ struct Player {
 
     /** The players with whom has already played with. */
     std::set<player_t> pairs;
+
+    bool has_played_with( Player& other ) const;
 };
 
 
@@ -60,7 +63,6 @@ public:
 
     /* query */
     void add_player();
-    bool has_played_with( player_t p1, player_t p2 ) const;
     Player& get_player( player_t id );
     std::size_t size();
 
