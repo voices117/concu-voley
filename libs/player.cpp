@@ -1,6 +1,8 @@
 /* include area */
 #include "player.hpp"
 
+using std::size_t;
+
 
 /**
  * Constructor implementation.
@@ -28,6 +30,10 @@ void PlayersTable::add_player() {
 
 bool Player::has_played_with( Player& other ) const {
     return ( this->pairs.find( other.id ) != this->pairs.end() );
+}
+
+size_t Player::num_matches() const {
+    return this->pairs.size();
 }
 
 /**

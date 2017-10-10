@@ -92,6 +92,7 @@ template <class T> IPC::Queue<T>::Queue( const std::string& filename, IPC::Queue
     this->fd = open( this->filename.c_str(), static_cast<int>( mode ) );
     if( this->fd == -1 )
         throw IPC::QueueError( strerror( errno ) );
+    LOG_DBG << "Queue " << filename << " opened in mode " << ( mode == IPC::QueueMode::read ? "read" : "write" ) << std::endl;
 }
 
 /**

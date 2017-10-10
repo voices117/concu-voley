@@ -25,11 +25,16 @@ public:
 
     /** The current player's state. */
     PlayerState state;
+    
+    /** Returns \c true if has player with the other player. */
+    bool has_played_with( Player& other ) const;
 
+    /** Returns the number of matches played. */
+    std::size_t num_matches() const;
+
+private:
     /** The players with whom has already played with. */
     std::set<player_t> pairs;
-
-    bool has_played_with( Player& other ) const;
 };
 
 

@@ -14,7 +14,7 @@ IPC::Process::Process( std::function<void()> callable ) {
     if( this->pid < 0 ) {
         throw IPC::Process::Error( "fork error: " + static_cast<std::string>( strerror( errno ) ) );
     } else if( this->pid == 0 ) {
-        LOG_DBG << "start process" << std::endl;
+        LOG_DBG << "start process with parent " << this->ppid << std::endl;
         callable();
         throw IPC::Process::Exit();
     }

@@ -44,8 +44,6 @@ static const string PLAYERS_TABLE = "/dev/null";
  * \param argv Command line arguments arguments list.
  */
 static void _start_match_simulator( int argc, const char *const argv[] ) {
-    //Resource<IPC::Barrier> barrier{ MATCH_BARRIER };
-
     /* starts the match simulator process */
     pid_t pid = fork();
     if( pid < 0 ) {
@@ -76,7 +74,7 @@ static void _start_results_processor() {
 static Team find_team( PlayersTable& players ) {
     for( Player& p1: players ) {
         /* has already played the maximum allowed of matches */
-        if( p1.pairs.size() >= 20 || p1.state != PlayerState::idle )
+        if( p1.num_matches() >= 20 || p1.state != PlayerState::idle )
             continue;
 
         /* finds another player */
@@ -91,6 +89,7 @@ static Team find_team( PlayersTable& players ) {
         }
     }
 
+    // TODO: use another exception type
     throw IPC::Error( "No pairs found" );
 }
 
@@ -98,15 +97,24 @@ static Team find_team( PlayersTable& players ) {
 /**
  * Producer of voley matches.
  */
-static void _produce_matches( PlayersTable& players, const string& consumer_name ) {
+static void _produce_matches( PlayersTable& players,
+                              const string& consumer_name,
+                              SIGINT_Handler& eh ) {
     IPC::Queue<Match> consumer{ consumer_name, IPC::QueueMode::write };
-    
-    for( size_t i = 0; i < 10; i++ ) {
-        Match m;
-        m.team1 = find_team( players );
-        m.team2 = find_team( players );
 
-        consumer.insert( m );
+    LOG_DBG << "start producing matches" << endl;
+    
+    while( !eh.has_to_quit() ) {
+        try {
+            Match m;
+            m.team1 = find_team( players );
+            m.team2 = find_team( players );
+    
+            consumer.insert( m );
+        } catch( const IPC::Error& e ) {
+            // REMOVE!!!
+            sleep( 1 );
+        }
     }
 }
 
@@ -149,7 +157,7 @@ int main( int argc, const char *argv[] )
         _start_match_simulator( argc, argv );
         _start_results_processor();
 
-        _produce_matches( players, MATCH_QUEUE );
+        _produce_matches( players, MATCH_QUEUE, eh );
 
         // TODO: do better
         do {
