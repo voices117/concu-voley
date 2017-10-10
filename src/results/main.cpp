@@ -1,4 +1,5 @@
 /* include area */
+#include "argparser.hpp"
 #include "log.hpp"
 #include "ipc.hpp"
 #include "match.hpp"
@@ -65,6 +66,11 @@ int main( int argc, const char *argv[] ) {
     try {
         LOG_DBG << "begin" << endl;
 
+        ArgParser p{ argc, argv };
+
+        auto max_players = p.get_option( "--max-players", size_t );
+        auto max_matches = p.get_option( "--max-matches", size_t );
+
         /* handles signals */
         SIGINT_Handler eh;
         SignalHandler::get_instance()->add_handler( SIGINT, &eh );
@@ -81,9 +87,18 @@ int main( int argc, const char *argv[] ) {
         IPC::Queue<MatchResult> redirect_q{ REDIRECT_QUEUE, IPC::QueueMode::write };
         IPC::Queue<MatchResult> results{ RESULTS_QUEUE, IPC::QueueMode::read };
 
+        // TODO: filename!!!
+        IPC::SharedMem<size_t> mem{ argv[0], max_players * ( max_matches + 2 ) * 2 + 1 };
+        PlayersTable players{ max_players * 2 + 1, max_matches, mem };
+
         while( !eh.has_to_quit() ) {
             MatchResult res = results.remove();
             LOG << "result: " << res << endl;
+
+            players.get_player( res.match.team1.player1 ).set_state( PlayerState::idle );
+            players.get_player( res.match.team1.player2 ).set_state( PlayerState::idle );
+            players.get_player( res.match.team2.player1 ).set_state( PlayerState::idle );
+            players.get_player( res.match.team2.player2 ).set_state( PlayerState::idle );
 
             redirect_q.insert( res );
         }

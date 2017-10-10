@@ -11,6 +11,9 @@
 #include <unistd.h>
 
 
+using std::size_t;
+
+
 namespace IPC{
 
     /**
@@ -23,6 +26,7 @@ namespace IPC{
     template <typename T> class Resource {
     public:
         Resource( const std::string& filename );
+        Resource( const std::string& filename, size_t n );
         ~Resource();
 
         Resource operator=( const Resource &other ) = delete;
@@ -55,6 +59,11 @@ namespace IPC{
 template <typename T> IPC::Resource<T>::Resource( const std::string& filename ) : filename(filename) {
     this->creator_pid = getpid();
     T::Create( this->filename );
+}
+
+template <typename T> IPC::Resource<T>::Resource( const std::string& filename, size_t n ) : filename(filename) {
+    this->creator_pid = getpid();
+    T::Create( this->filename, n );
 }
 
 /**

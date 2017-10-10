@@ -106,10 +106,6 @@ int main( int argc, const char *argv[] ) {
         SignalHandler::get_instance()->add_handler( SIGPIPE, &eh );
         SignalHandler::get_instance()->add_handler( SIGCHLD, &eh );
         SignalHandler::get_instance()->add_handler( SIGTERM, &eh );
-
-        /* creates the IPC resources */
-        //IPC::Resource<IPC::Queue<int>> input_queue{ input };
-        //IPC::Resource<IPC::Queue<float>> output_queue{ output };
         
         /* creates the processes for the matches */
         _create_courts( nrows, ncols, input, output, eh );
