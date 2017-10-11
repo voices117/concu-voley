@@ -54,6 +54,9 @@ struct MatchResult {
     int team2_sets;
 
     friend std::ostream& operator<<( std::ostream& os, const MatchResult& r ) {
+        if( r.status == Status::interrupted ) {
+            os << "[interrupted] ";
+        }
         os << r.match << " = (" << r.team1_sets << ", " << r.team2_sets << ")";
         return os;
     }

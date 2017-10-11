@@ -52,6 +52,10 @@ static void _scoreboard( SIGINT_Handler* eh ) {
         if( team1_points < 0 || team2_points < 0 ) {
             LOG_DBG << "Bad points: " << res << endl;
         }
+
+        if( res.status != Status::played ) {
+            continue;
+        }
         
         /* updates the scores */
         scores[res.match.team1.player1] += team1_points;
@@ -112,6 +116,9 @@ int main( int argc, const char *argv[] ) {
         while( !eh.has_to_quit() ) {
             MatchResult res = results.remove();
             LOG << "result: " << res << endl;
+            if( res.status != Status::played ) {
+                continue;
+            }
 
             {
                 Player p1_1 = players.get_player( res.match.team1.player1 );
