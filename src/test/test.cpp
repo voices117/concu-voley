@@ -119,6 +119,14 @@ int main( int argc, const char *argv[] ) {
         
         Player p6 = players.get_player( 6 );
         ASSERT( p6.num_matches() == 0 );
+        
+        PlayerRO rp7 = players.get_player_ro( 7 );
+        ASSERT( rp7.num_matches() == 0 );
+
+        PlayerRO rp10 = players.get_player_ro( 10 );
+        ASSERT( rp10.num_matches() == p10.num_matches() );
+        ASSERT( rp10.has_played_with( p5 ) == p10.has_played_with( p5 ) );
+        ASSERT( rp10.has_played_with( p3 ) == p10.has_played_with( p3 ) );
 
     } catch( const AssertError& e ) {
         cout << "Assertion error at " << e.what() << endl;
