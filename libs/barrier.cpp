@@ -11,7 +11,6 @@
  * Creates a new Barrier resource
  * 
  * \param filename The filename to use for the IPC resource for the barrier.
- * \param n Number of "signals" until the processes waiting the barrier are released.
  */
 void IPC::Barrier::Create( const std::string& filename ) {
     key_t key = ftok( filename.c_str(), 0 );
@@ -27,9 +26,9 @@ void IPC::Barrier::Create( const std::string& filename ) {
 }
 
 /**
- * Destroys a semaphore created before, deallocating the OS resources.
+ * Destroys a barrier created before, deallocating the OS resources.
  * 
- * \param filename Filename of the semaphore to destroy.
+ * \param filename Filename of the barrier to destroy.
  */
 void IPC::Barrier::Destroy( const std::string& filename ) {
     key_t key = ftok( filename.c_str(), 0 );
