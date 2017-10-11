@@ -49,6 +49,7 @@ namespace IPC {
         static void Destroy( const std::string& filename );
         
         Queue( const std::string& filename, QueueMode mode );
+        Queue( const std::string& filename, QueueMode mode, bool uninterrupted );
         Queue& operator=( const Queue& other );
         ~Queue();
         
@@ -58,7 +59,7 @@ namespace IPC {
     private:
         std::string filename;
         int fd { -1 };
-        
+        bool uninterrupted;
     };
     
 }
@@ -88,11 +89,15 @@ template <class T> void IPC::Queue<T>::Destroy( const std::string& filename ) {
 /**
  * Queue constructor implementation.
  */
-template <class T> IPC::Queue<T>::Queue( const std::string& filename, IPC::QueueMode mode ) : filename(filename) {
+template <class T> IPC::Queue<T>::Queue( const std::string& filename, IPC::QueueMode mode ) : Queue(filename, mode, false) {
+}
+
+template <typename T> IPC::Queue<T>::Queue( const std::string& filename, IPC::QueueMode mode, bool uninterrupted ) : filename(filename) {
     this->fd = open( this->filename.c_str(), static_cast<int>( mode ) );
     if( this->fd == -1 )
         throw IPC::QueueError( strerror( errno ) );
     LOG_DBG << "Queue " << filename << " opened in mode " << ( mode == IPC::QueueMode::read ? "read" : "write" ) << std::endl;
+    this->uninterrupted = uninterrupted;
 }
 
 /**
@@ -111,8 +116,15 @@ template <class T> IPC::Queue<T>::~Queue() {
  * \param elem Element to insert.
  */
 template <class T> void IPC::Queue<T>::insert( T elem ) {
-    if( write( this->fd, &elem, sizeof( T ) ) == -1 )
-        throw IPC::QueueError( strerror( errno ) );
+    do {
+        if( write( this->fd, &elem, sizeof( T ) ) == -1 ) {
+            if( errno == EINTR && this->uninterrupted ) {
+                /* retries */
+                continue;
+            }
+            throw IPC::QueueError( strerror( errno ) );
+        }
+    } while( errno == EINTR );
 }
 
 /**
@@ -122,11 +134,21 @@ template <class T> void IPC::Queue<T>::insert( T elem ) {
  */
 template <class T> T IPC::Queue<T>::remove() {
     T rv;
-    int bytes_read = read( this->fd, &rv, sizeof( T ) );
-    if( bytes_read == 0 )
-        throw IPC::QueueEOF();
-    if( bytes_read != sizeof( T ) )
-        throw IPC::QueueError( strerror( errno ) );
+
+    do {
+        int bytes_read = read( this->fd, &rv, sizeof( T ) );
+        if( bytes_read == 0 ) {
+            throw IPC::QueueEOF();
+        }
+    
+        if( bytes_read != sizeof( T ) ) {
+            if( errno == EINTR && this->uninterrupted ) {
+                /* retries */
+                continue;
+            }
+            throw IPC::QueueError( strerror( errno ) );
+        }
+    } while( errno == EINTR );
 
     /* TODO: use move semantics */
     return rv;

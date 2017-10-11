@@ -33,50 +33,59 @@ static const string OUTPUT = "/tmp/match_out";
  * \param output Name of the output Queue.
  */
 void _consume_matches( int row, SIGINT_Handler& eh, const string& input, const string& output ) {
-    try {
-        IPC::Queue<Match> in( input, IPC::QueueMode::read );
-        IPC::Queue<MatchResult> out( output, IPC::QueueMode::write );
-
-        while( !eh.has_to_quit() ) {
+    IPC::Queue<Match> in( input, IPC::QueueMode::read, true );
+    IPC::Queue<MatchResult> out( output, IPC::QueueMode::write, true );
+    
+    while( !eh.has_to_quit() ) {
+        try {
             Match m = in.remove();
-            MatchResult r;
 
             int match_duration = Utils::rand_int( 1, 3 );
             LOG << "Match: " << m << " taking " << match_duration << " seconds" << endl;
-            sleep( match_duration );
-
-            int result = Utils::rand_int( 1, 4 );
-            switch( result ) {
-                /* team 1 won 3:0 or 3:1 */
-                case 1:
-                    r.team1_sets = 3;
-                    r.team2_sets = Utils::rand_int( 0, 1 );
-                    break;
-                /* team 2 won 3:0 or 3:1 */
-                case 2:
-                    r.team1_sets = Utils::rand_int( 0, 1 );
-                    r.team2_sets = 3;
-                    break;
-                /* team 1 won 3:2 */
-                case 3:
-                    r.team1_sets = 3;
-                    r.team2_sets = 2;
-                    break;
-                /* team 2 won 3:2 */
-                case 4:
-                    r.team1_sets = 2;
-                    r.team2_sets = 3;
-                    break;
-            }
+            unsigned int sleep_rv = sleep( match_duration );
             
+            MatchResult r;
             r.match = m;
-            r.status = Status::played;
+
+            /* checks if it was interrupted */
+            if( sleep_rv > 0 ) {
+                r.status = Status::interrupted;
+            } else {
+                r.status = Status::played;
+
+                int result = Utils::rand_int( 1, 4 );
+                switch( result ) {
+                    /* team 1 won 3:0 or 3:1 */
+                    case 1:
+                        r.team1_sets = 3;
+                        r.team2_sets = Utils::rand_int( 0, 1 );
+                        break;
+                    /* team 2 won 3:0 or 3:1 */
+                    case 2:
+                        r.team1_sets = Utils::rand_int( 0, 1 );
+                        r.team2_sets = 3;
+                        break;
+                    /* team 1 won 3:2 */
+                    case 3:
+                        r.team1_sets = 3;
+                        r.team2_sets = 2;
+                        break;
+                    /* team 2 won 3:2 */
+                    case 4:
+                        r.team1_sets = 2;
+                        r.team2_sets = 3;
+                        break;
+                }
+            }
 
             out.insert( r );
+        } catch( IPC::QueueError& e ) {
+            LOG << e.what() << endl;
+        } catch ( IPC::QueueEOF& e ) {
+            /* if the queue was closed, exits */
+            return;
         }
-    } catch( IPC::QueueError& e ) {
-        LOG << e.what() << endl;
-    } catch ( IPC::QueueEOF& e ) {}
+    }
 }
 
 
