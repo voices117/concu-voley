@@ -2,7 +2,9 @@
 #include "ipc.hpp"
 #include "player.hpp"
 #include "process.hpp"
+#include "sigint_handler.hpp"
 #include "str_utils.hpp"
+#include "utils.hpp"
 #include <iostream>
 #include <string>
 #include <exception>
@@ -15,6 +17,7 @@ using IPC::Resource;
 
 
 #define ASSERT( e ) if( !( e ) ) { throw AssertError{ XSTR( __LINE__ ) ": " #e " is not true" }; }
+#define ASSERT_MSG( e, msg ) if( !( e ) ) { throw AssertError{ static_cast<string>( XSTR( __LINE__ ) ": " #e " is not true: " ) + msg }; }
 
 
 class AssertError : public std::exception {
@@ -30,7 +33,7 @@ private:
 
 
 static void _play( PlayersTable* players ) {
-    for( size_t i = 4; i < 15; i++ ) {
+    for( size_t i = 5; i < 15; i++ ) {
         players->add_player();
         
         ASSERT( players->size() == i );
@@ -40,6 +43,9 @@ static void _play( PlayersTable* players ) {
     
     Player p5 = players->get_player( 5 );
     ASSERT( p5.id == 5 );
+
+    /* takes another read instance, so it should be OK */
+    PlayerRO p4 = players->get_player_ro( 4 );
 
     Player p10 = players->get_player( 10 );
     ASSERT( p10.id == 10 );
@@ -56,16 +62,21 @@ static void _play( PlayersTable* players ) {
 
 int main( int argc, const char *argv[] ) {
     int rv = 0;
+    bool child = false;
+
     Log::get_instance().set_level( Log::Level::debug );
 
     try {
         size_t max_players = 15;
         size_t max_matches = 8;
 
-        Resource<IPC::SharedMem<size_t>> players_mem{ argv[0], max_players * ( max_matches + 2 ) * 2 + 1 };
+        /* signal handlers */
+        SIGINT_Handler eh;
+        SignalHandler::get_instance()->add_handler( SIGINT, &eh );
+        SignalHandler::get_instance()->add_handler( SIGPIPE, &eh );
 
-        IPC::SharedMem<size_t> mem{ argv[0], max_players * ( max_matches + 2 ) * 2 + 1 };
-        PlayersTable players{ max_players * 2 + 1, max_matches, mem };
+        Resource<PlayersTable> players_res{ argv[0], max_players, max_matches };
+        PlayersTable players{ argv[0], max_players, max_matches };
 
         ASSERT( players.size() == 0 );
         
@@ -80,6 +91,7 @@ int main( int argc, const char *argv[] ) {
         players.add_player();
         ASSERT( players.size() == 2 );
         
+        PlayerRO rp2 = players.get_player_ro( 2 );
         Player p2 = players.get_player( 2 );
         ASSERT( p2.id == 2 );
         ASSERT( p2.get_state() == PlayerState::idle );
@@ -90,9 +102,11 @@ int main( int argc, const char *argv[] ) {
         p1.set_pair( p2 );
         ASSERT( p1.has_played_with( p2 ) == true );
         ASSERT( p2.has_played_with( p1 ) == true );
+        ASSERT( rp2.has_played_with( p1 ) == true );
         ASSERT( p1.num_matches() == 1 );
         ASSERT( p2.num_matches() == 1 );
-        
+        ASSERT( rp2.num_matches() == 1 );
+
         players.add_player();
         ASSERT( players.size() == 3 );
         Player p3 = players.get_player( 3 );
@@ -106,11 +120,16 @@ int main( int argc, const char *argv[] ) {
         ASSERT( p1.has_played_with( p3 ) == true );
         ASSERT( p1.num_matches() == 2 );
         
+        players.add_player();
+        PlayerRO p4 = players.get_player_ro( 4 );
+        
         /* creates players in another process */
         IPC::Process{ [&players](){ _play( &players ); } };
         
         /* checks that the memory is really shared */
         ASSERT( players.size() == 14 );
+
+        /* allowed to take write instances because the process alreay released the lock */
         Player p5 = players.get_player( 5 );
         Player p10 = players.get_player( 10 );
         ASSERT( p5.num_matches() == 1 );
@@ -128,17 +147,27 @@ int main( int argc, const char *argv[] ) {
         ASSERT( rp10.has_played_with( p5 ) == p10.has_played_with( p5 ) );
         ASSERT( rp10.has_played_with( p3 ) == p10.has_played_with( p3 ) );
 
+        /* iteration test */
+        player_t id = 1;
+        for( PlayerRO p: players ) {
+            string obt_id = std::to_string( p.id );
+            string exp_id = std::to_string( id );
+            
+            ASSERT_MSG( p.id == id, "obtained " + obt_id + ", expected " + exp_id );
+            id++;
+        }
+
     } catch( const AssertError& e ) {
         cout << "Assertion error at " << e.what() << endl;
         rv = 1;
     } catch( const IPC::Process::Exit& e ) {
-        /* ok */
+        child = true;
     } catch( const IPC::Error& e ) {
         cout << "IPC error: " << e.what() << endl;
         rv = 5;
     }
 
-    if( rv == 0 ) {
+    if( rv == 0 && !child ) {
         LOG << "OK!" << endl;
     }
 

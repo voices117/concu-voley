@@ -8,15 +8,19 @@
 #include "sigint_handler.hpp"
 #include <map>
 #include <set>
+#include <iomanip>
 #include <functional>
 #include <algorithm>
 
 using std::string;
 using std::pair;
 using std::map;
+using std::multimap;
 using std::set;
 using std::function;
 using std::endl;
+using std::setfill;
+using std::setw;
 using IPC::Resource;
 
 
@@ -26,6 +30,14 @@ static const string RESULTS_QUEUE = "/tmp/match_out";
 /** Queue to redirect the results. */
 static const string REDIRECT_QUEUE = "/tmp/redirect";
 
+/** For 2 teams teamX and teamY, the table gives the points of teamX as sets_to_points[teamY.sets][teamX.sets] */
+static const int sets_to_points[][4] = {
+    { -1, -1, -1,  3 },
+    { -1, -1, -1,  3 },
+    { -1, -1, -1,  2 },
+    {  0,  0,  1, -1 },
+};
+
 
 static void _scoreboard( SIGINT_Handler* eh ) {
     IPC::Queue<MatchResult> input{ REDIRECT_QUEUE, IPC::QueueMode::read };
@@ -33,28 +45,35 @@ static void _scoreboard( SIGINT_Handler* eh ) {
     map<player_t, int> scores;
     while( !eh->has_to_quit() ) {
         MatchResult res = input.remove();
+
+        int team1_points = sets_to_points[res.team2_sets][res.team1_sets];
+        int team2_points = sets_to_points[res.team1_sets][res.team2_sets];
+
+        if( team1_points < 0 || team2_points < 0 ) {
+            LOG_DBG << "Bad points: " << res << endl;
+        }
         
         /* updates the scores */
-        scores[res.match.team1.player1] += res.team1_points;
-        scores[res.match.team1.player2] += res.team1_points;
+        scores[res.match.team1.player1] += team1_points;
+        scores[res.match.team1.player2] += team1_points;
 
-        scores[res.match.team2.player1] += res.team2_points;
-        scores[res.match.team2.player2] += res.team2_points;
+        scores[res.match.team2.player1] += team2_points;
+        scores[res.match.team2.player2] += team2_points;
 
-        /* sorts by highest score */
-        typedef function<bool(pair<player_t, int>, pair<player_t, int>)> Comparator;
-
-        Comparator cmp = []( pair<player_t, int> elem1, pair<player_t, int> elem2 ) {
-            return elem1.second > elem2.second;
-        };
-
-        set<pair<player_t, int>, Comparator> players_set( scores.begin(), scores.end(), cmp );
-
+        /* descending order multimap */
+        multimap<int, player_t, std::greater<int>> players_per_score;
+        for( auto e: scores ) {
+            players_per_score.insert( pair<int, player_t>( e.second, e.first ) );
+        }
+        
         /* displays the scores */
-        //for( auto entry: players_set ) {
-        //    LOG << "- player " << entry.first << ": " << entry.second << " points." << endl;
-        //}
-        //LOG << "----------" << endl;
+        LOG << "+---- RANKING ----+" << endl;
+        LOG << "| player | score  |" << endl;
+        LOG << "+-----------------+" << endl;
+        for( auto entry: players_per_score ) {
+            LOG << "| " << setfill(' ') << setw(6) << entry.second << " | " << setfill(' ') << setw(6) << entry.first << " |" << endl;
+        }
+        LOG << "+-----------------+" << endl;
     }
 }
 
@@ -88,17 +107,26 @@ int main( int argc, const char *argv[] ) {
         IPC::Queue<MatchResult> results{ RESULTS_QUEUE, IPC::QueueMode::read };
 
         // TODO: filename!!!
-        IPC::SharedMem<size_t> mem{ argv[0], max_players * ( max_matches + 2 ) * 2 + 1 };
-        PlayersTable players{ max_players * 2 + 1, max_matches, mem };
+        PlayersTable players{ argv[0], max_players * 2, max_matches };
 
         while( !eh.has_to_quit() ) {
             MatchResult res = results.remove();
             LOG << "result: " << res << endl;
 
-            players.get_player( res.match.team1.player1 ).set_state( PlayerState::idle );
-            players.get_player( res.match.team1.player2 ).set_state( PlayerState::idle );
-            players.get_player( res.match.team2.player1 ).set_state( PlayerState::idle );
-            players.get_player( res.match.team2.player2 ).set_state( PlayerState::idle );
+            {
+                Player p1_1 = players.get_player( res.match.team1.player1 );
+                Player p2_1 = players.get_player( res.match.team1.player2 );
+                p1_1.set_state( PlayerState::idle );
+                p2_1.set_state( PlayerState::idle );
+                p1_1.set_pair( p2_1 );
+            }
+            {
+                Player p1_2 = players.get_player( res.match.team2.player1 );
+                Player p2_2 = players.get_player( res.match.team2.player2 );
+                p1_2.set_state( PlayerState::idle );
+                p2_2.set_state( PlayerState::idle );
+                p1_2.set_pair( p2_2 );
+            }
 
             redirect_q.insert( res );
         }

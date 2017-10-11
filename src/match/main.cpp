@@ -8,6 +8,7 @@
 #include "match.hpp"
 #include "process.hpp"
 #include "sigint_handler.hpp"
+#include "utils.hpp"
 #include <iostream>
 #include <unistd.h>
 #include <vector>
@@ -40,12 +41,36 @@ void _consume_matches( int row, SIGINT_Handler& eh, const string& input, const s
             Match m = in.remove();
             MatchResult r;
 
-            sleep(1);
+            int match_duration = Utils::rand_int( 1, 3 );
+            LOG << "Match: " << m << " taking " << match_duration << " seconds" << endl;
+            sleep( match_duration );
 
+            int result = Utils::rand_int( 1, 4 );
+            switch( result ) {
+                /* team 1 won 3:0 or 3:1 */
+                case 1:
+                    r.team1_sets = 3;
+                    r.team2_sets = Utils::rand_int( 0, 1 );
+                    break;
+                /* team 2 won 3:0 or 3:1 */
+                case 2:
+                    r.team1_sets = Utils::rand_int( 0, 1 );
+                    r.team2_sets = 3;
+                    break;
+                /* team 1 won 3:2 */
+                case 3:
+                    r.team1_sets = 3;
+                    r.team2_sets = 2;
+                    break;
+                /* team 2 won 3:2 */
+                case 4:
+                    r.team1_sets = 2;
+                    r.team2_sets = 3;
+                    break;
+            }
+            
             r.match = m;
             r.status = Status::played;
-            r.team1_points = m.team2.player1;
-            r.team2_points = m.team1.player1;
 
             out.insert( r );
         }

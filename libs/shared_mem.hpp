@@ -40,7 +40,11 @@ namespace IPC {
         void write( size_t index, const T* elems, size_t num_elems );
         void read( size_t index, T* elems, size_t num_elems );
 
+        /** Returns a pointer to the given index */
         T* get_ptr( size_t index );
+
+        /** Initializes allocated memory with zeros. */
+        void set_zero();
 
         /** Derreference operator so this class simulates a pointer. */
         T& operator*();
@@ -120,7 +124,7 @@ template <typename T> IPC::SharedMem<T>::SharedMem( const std::string& filename,
     if ( ptr == ( void *) -1 ) {
         throw IPC::SharedMemError( "shmid: " + static_cast<std::string>( strerror( errno ) ) );
     }
-    
+
     /* initializes the object */
     this->shmid = shmid;
     this->data = static_cast<T *>( ptr );
@@ -160,9 +164,14 @@ template <typename T> void IPC::SharedMem<T>::read( size_t index, T* elems, size
 
 template <typename T> T* IPC::SharedMem<T>::get_ptr( size_t index ) {
     if( index >= this->n ) {
-        throw IPC::SharedMemError( "Out of bounds" );
+        throw IPC::SharedMemError( "Out of bounds: " + std::to_string( index ) );
     }
     return this->data + index;
+}
+
+
+template <typename T> void IPC::SharedMem<T>::set_zero() {
+    memset( this->data, 0, this->n );
 }
 
 

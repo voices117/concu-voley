@@ -70,23 +70,29 @@ static void _start_results_processor( int arg, const char *const argv[] ) {
 }
 
 
-static Team find_team( PlayersTable& players, size_t max_matches ) {
-    for( Player p1: players ) {
+static Team find_team( PlayersTable& players ) {
+    for( PlayerRO p1: players ) {
         /* has already played the maximum allowed of matches */
-        if( p1.num_matches() >= max_matches || p1.get_state() != PlayerState::idle )
+        if( p1.num_matches() >= players.max_matches || p1.get_state() != PlayerState::idle ) {
             continue;
+        }
 
         /* finds another player */
-        for( Player p2: players ) {
-            if( p2 == p1 || p2.get_state() != PlayerState::idle || p1.has_played_with( p2 ) )
+        for( PlayerRO p2: players ) {
+            if( p2 == p1 || p2.get_state() != PlayerState::idle || p1.has_played_with( p2 ) ) {
                 continue;
-
-            p1.set_state( PlayerState::playing );
-            p2.set_state( PlayerState::playing );
+            }
+            
+            /* gets mutable instances to change the state */
+            Player mp1 = players.get_player( p1.id );
+            Player mp2 = players.get_player( p2.id );
+            mp1.set_state( PlayerState::playing );
+            mp2.set_state( PlayerState::playing );
+            
             return Team{ p1.id, p2.id };
         }
     }
-
+    
     // TODO: use another exception type
     throw IPC::Error( "No pairs found" );
 }
@@ -105,8 +111,8 @@ static void _produce_matches( PlayersTable& players,
     while( !eh.has_to_quit() ) {
         try {
             Match m;
-            m.team1 = find_team( players, players.max_matches );
-            m.team2 = find_team( players, players.max_matches );
+            m.team1 = find_team( players );
+            m.team2 = find_team( players );
     
             consumer.insert( m );
         } catch( const IPC::Error& e ) {
@@ -148,10 +154,10 @@ int main( int argc, const char *argv[] )
         /* creates the IPC resources */
         Resource<IPC::Queue<Match>> match_q{ MATCH_QUEUE };
         Resource<IPC::Queue<MatchResult>> result_q{ RESULTS_QUEUE };
-        Resource<IPC::SharedMem<size_t>> players_mem{ argv[0], max_players * ( max_matches + 2 ) * 2 + 1 };
+        Resource<PlayersTable> players_res{ argv[0], max_players * 2, max_matches };
 
-        IPC::SharedMem<size_t> mem{ argv[0], max_players * ( max_matches + 2 ) * 2 + 1 };
-        PlayersTable players{ max_players * 2 + 1, max_matches, mem };
+        /* the table has space for 2*M players */
+        PlayersTable players{ argv[0], max_players * 2, max_matches };
 
         // TODO: include the IO Queue names
         _players_spawner( players );

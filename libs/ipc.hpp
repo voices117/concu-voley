@@ -27,6 +27,7 @@ namespace IPC{
     public:
         Resource( const std::string& filename );
         Resource( const std::string& filename, size_t n );
+        Resource( const std::string& filename, size_t n, size_t m );
         ~Resource();
 
         Resource operator=( const Resource &other ) = delete;
@@ -64,6 +65,11 @@ template <typename T> IPC::Resource<T>::Resource( const std::string& filename ) 
 template <typename T> IPC::Resource<T>::Resource( const std::string& filename, size_t n ) : filename(filename) {
     this->creator_pid = getpid();
     T::Create( this->filename, n );
+}
+
+template <typename T> IPC::Resource<T>::Resource( const std::string& filename, size_t n, size_t m ) : filename(filename) {
+    this->creator_pid = getpid();
+    T::Create( this->filename, n, m );
 }
 
 /**

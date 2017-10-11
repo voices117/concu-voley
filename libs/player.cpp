@@ -3,18 +3,49 @@
 
 using std::size_t;
 using std::string;
+using IPC::Lock;
+using IPC::SharedMem;
+
+
+/* each player has an array of 'max_matches' (to store the IDs of the other players it
+ * has played with), the number of matches it has already played and it's state.
+ * an extra size_t is used by the table to hold the number of players initialized */
+#define PLAYERS_TABLE_SIZE( max_players, max_matches ) ( max_players * ( max_matches + 2 ) + 1 )
+
+
+/**
+ * Creates a shared table that holds the players state.
+ * 
+ * \param filename The filename of the shared resource.
+ */
+void PlayersTable::Create( const string& filename, size_t max_players, size_t max_matches ) {
+    
+    size_t size = PLAYERS_TABLE_SIZE( max_players, max_matches );
+
+    SharedMem<size_t>::Create( filename, size );
+    SharedMem<size_t> mem{ filename, size };
+
+    /* initialize to zero */
+    mem.set_zero();
+}
+
+/**
+ * Destroys the players table shared resource.
+ * 
+ * \param filename The filname of the shared resource.
+ */
+void PlayersTable::Destroy( const string& filename ) {
+    SharedMem<size_t>::Destroy( filename );
+}
 
 
 /**
  * Constructor implementation.
  * 
  */
-PlayersTable::PlayersTable( size_t max_players, size_t max_matches, IPC::SharedMem<size_t>& storage ) : max_players(max_players),
+PlayersTable::PlayersTable( const string& filename, size_t max_players, size_t max_matches ) : max_players(max_players),
                                                                                                      max_matches(max_matches),
-                                                                                                     storage(storage) {
-    /* the first element is the number of players in the table.
-     * initializes the table with zero players */
-    *this->storage.get_ptr( 0 ) = 0;
+                                                                                                     storage(filename, PLAYERS_TABLE_SIZE( max_players, max_matches ) ) {
 }
 
 /**
@@ -51,9 +82,11 @@ Player PlayersTable::get_player( player_t id ) {
     if( id == 0 ) {
         throw IPC::Error( "Invalid player id" );
     }
-    
-    Player p{ id, this->get_ptr( id ) };
-    return p;
+
+    off_t offset = ( off_t )id;
+    off_t len = 1;
+    // TODO: change fd
+    return Player{ id, this->get_ptr( id ), Lock{ 1, offset, len, Lock::Mode::write } };
 }
 
 
@@ -61,14 +94,17 @@ Player PlayersTable::get_player( player_t id ) {
  * Gets a player from the table.
  * 
  * \param id ID of the player.
- * \return Player associated to the given ID.
+ * \return A read-only player instance associated to the given ID.
  */
 PlayerRO PlayersTable::get_player_ro( player_t id ) {
     if( id == 0 ) {
         throw IPC::Error( "Invalid player id" );
     }
 
-    return PlayerRO{ id, this->get_ptr( id ) };
+    off_t offset = ( off_t )id;
+    off_t len = 1;
+    // TODO: change fd
+    return PlayerRO{ id, this->get_ptr( id ), Lock{ 1, offset, len, Lock::Mode::read } };
 }
 
 /**
@@ -81,7 +117,12 @@ size_t PlayersTable::size() {
 }
 
 size_t *PlayersTable::get_ptr( player_t id ) {
-    return this->storage.get_ptr( ( id - 1 ) * ( this->max_matches + 2 ) + 1 );
+    try {
+        return this->storage.get_ptr( ( id - 1 ) * ( this->max_matches + 2 ) + 1 );
+    } catch( const IPC::SharedMemError& e ) {
+        LOG_DBG << e.what() << " id: " << id << std::endl;
+        throw;
+    }
 }
 
 /**
@@ -90,7 +131,7 @@ size_t *PlayersTable::get_ptr( player_t id ) {
  * \return Iterator at the beggining of the table.
  */
 PlayersTable::iterator PlayersTable::begin() {
-    return PlayersTable::iterator( *this, 1 );
+    return PlayersTable::iterator{ *this, 1 };
 }
 
 /**
@@ -99,7 +140,7 @@ PlayersTable::iterator PlayersTable::begin() {
  * \return End iterator.
  */
 PlayersTable::iterator PlayersTable::end() {
-    return PlayersTable::iterator( *this, this->size() );
+    return PlayersTable::iterator{ *this, this->size() + 1 };
 }
 
 /**
@@ -110,8 +151,8 @@ PlayersTable::iterator& PlayersTable::iterator::operator++() {
     return *this;
 }
 
-Player PlayersTable::iterator::operator*() {
-    return this->table->get_player( this->index );
+PlayerRO PlayersTable::iterator::operator*() {
+    return this->table->get_player_ro( this->index );
 }
 
 bool PlayersTable::iterator::operator==( PlayersTable::iterator& other ) {

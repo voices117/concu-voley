@@ -6,7 +6,7 @@
 
 
 namespace Utils {
-    /** Generates a random number in the range [min, max) */
+    /** Generates a random number in the range [min, max] */
     int rand_int( int min, int max );
 }
 

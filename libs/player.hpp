@@ -2,6 +2,7 @@
 #define PLAYER_HPP
 
 /* include area */
+#include "lock.hpp"
 #include "log.hpp"
 #include "shared_mem.hpp"
 #include <vector>
@@ -32,7 +33,7 @@ class Player {
     friend class PlayersTable;
 
 public:
-    Player( Player&& other ) {
+    Player( Player&& other ) : lock(std::move(other.lock)) {
         this->id = other.id;
         this->state = other.state;
         this->pairs = other.pairs;
@@ -66,7 +67,7 @@ public:
     bool operator==( Player& other ) { return this->id == other.id; }
     
 protected:
-    Player( player_t id, size_t *data ) {
+    Player( player_t id, size_t *data, IPC::Lock lock ) : lock(std::move(lock)) {
         this->id = id;
         this->state = &data[0];
         this->num_pairs = &data[1];
@@ -81,6 +82,9 @@ protected:
 
     /** Number of pairs this player had. */
     size_t *num_pairs{nullptr};
+
+    /** The memory lock. */
+    IPC::Lock lock;
 };
 
 
@@ -92,14 +96,14 @@ class PlayerRO {
     friend class PlayersTable;
 
 public:
-    PlayerRO( PlayerRO&& other ) : player(std::move( other.player)) {}
+    PlayerRO( PlayerRO&& other ) : player(std::move( other.player)) { this->id = other.id; }
     ~PlayerRO() {}
     
     void operator=( PlayerRO& other ) = delete;
     void operator=( const PlayerRO& other ) = delete;
     
     /** The ID of the player represented. */
-    player_t id;
+    player_t id{0};
     
     /** Returns \c true if has player with the other player. */
     bool has_played_with( const PlayerRO& other ) const { return this->player.has_played_with( other.player ); }
@@ -113,7 +117,7 @@ public:
     bool operator==( PlayerRO& other ) { return this->id == other.id; }
     
 protected:
-    PlayerRO( player_t id, size_t *data ) : player(id, data) {} 
+    PlayerRO( player_t id, size_t *data, IPC::Lock&& lock ) : id(id), player(id, data, std::move(lock)) {} 
     Player player;
 
 };
@@ -136,14 +140,17 @@ public:
         bool operator==( iterator& other );
         bool operator!=( iterator& other );
         iterator& operator++();
-        Player operator*();
+        PlayerRO operator*();
         
-    private:
         size_t index{1};
-        PlayersTable* table;
+    private:
+        PlayersTable* table{nullptr};
     };
+
+    static void Create( const std::string& filename, size_t max_players, size_t max_matches );
+    static void Destroy( const std::string& filename );
     
-    PlayersTable( size_t max_players, size_t max_matches, IPC::SharedMem<size_t>& storage );
+    PlayersTable( const std::string& filename, size_t max_players, size_t max_matches );
     ~PlayersTable();
     
     /* query */
@@ -161,7 +168,7 @@ public:
 
 private:
 
-    IPC::SharedMem<size_t>& storage;
+    IPC::SharedMem<size_t> storage;
     size_t *get_ptr( player_t id );
 };
 
