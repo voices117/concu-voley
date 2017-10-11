@@ -116,26 +116,22 @@ int main( int argc, const char *argv[] ) {
         while( !eh.has_to_quit() ) {
             MatchResult res = results.remove();
             LOG << "result: " << res << endl;
-            if( res.status != Status::played ) {
-                continue;
-            }
 
-            {
-                Player p1_1 = players.get_player( res.match.team1.player1 );
-                Player p2_1 = players.get_player( res.match.team1.player2 );
-                p1_1.set_state( PlayerState::idle );
-                p2_1.set_state( PlayerState::idle );
+            Player p1_1 = players.get_player( res.match.team1.player1 );
+            Player p2_1 = players.get_player( res.match.team1.player2 );
+            p1_1.set_state( PlayerState::idle );
+            p2_1.set_state( PlayerState::idle );
+
+            Player p1_2 = players.get_player( res.match.team2.player1 );
+            Player p2_2 = players.get_player( res.match.team2.player2 );
+            p1_2.set_state( PlayerState::idle );
+            p2_2.set_state( PlayerState::idle );
+                        
+            if( res.status == Status::played ) {
                 p1_1.set_pair( p2_1 );
-            }
-            {
-                Player p1_2 = players.get_player( res.match.team2.player1 );
-                Player p2_2 = players.get_player( res.match.team2.player2 );
-                p1_2.set_state( PlayerState::idle );
-                p2_2.set_state( PlayerState::idle );
                 p1_2.set_pair( p2_2 );
+                redirect_q.insert( res );
             }
-
-            redirect_q.insert( res );
         }
         
     } catch( const IPC::QueueError& e ) {
