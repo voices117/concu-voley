@@ -3,7 +3,7 @@
 
 
 /**
- * Returns a random integer in the range [min, max).
+ * Returns a random integer in the range [min, max].
  * 
  * \param min Minimun number to be generated.
  * \param max Maximum number (not included) to be generated.
