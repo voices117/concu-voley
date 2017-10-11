@@ -1,6 +1,36 @@
 /* include area */
 #include "log.hpp"
+#include <errno.h>
+#include <string>
+#include <string.h>
 #include <iostream>
+#include <sys/types.h>
+
+using std::string;
+using IPC::Lock;
+
+
+/**
+ * LogStream move constructor.
+ * 
+ * \param other Instance to take resources from.
+ */
+LogStream::LogStream( LogStream&& other ) : lock(std::move(other.lock)), streams(other.streams) {
+}
+
+
+LogStream LogStream::operator<<( std::ostream& ( *manipulator )( std::ostream& ) ) {
+    for( const auto s: this->streams ) {
+        *s << manipulator;
+    }
+    return std::move( *this );
+}
+
+LogStream& LogStream::operator=( LogStream&& other ) {
+    this->lock = std::move( other.lock );
+    this->streams = other.streams;
+    return *this;
+}
 
 
 /**
@@ -18,6 +48,11 @@ Log& Log::get_instance() {
 Log::Log() {
     // TODO: cout should not be automatically registered
     this->streams.push_back( &std::cout );
+
+    this->fd = open( LOG_LOCK_FILE, O_RDWR | O_TRUNC | O_CREAT, 0644 );
+    if( this->fd < 0 ) {
+        throw IPC::Error( "Could not open log file: " + static_cast<string>( strerror( errno ) ) );
+    }
 }
 
 /**
@@ -34,6 +69,16 @@ Log& Log::debug() {
 }
 
 /**
+ * Destructor implementation.
+ */
+Log::~Log() {
+    if( this->fd > 0 ) {
+        close( this->fd );
+        this->fd = 1;
+    }
+}
+
+/**
  * Sets the logging level (the messages that will be logged and ignored).
  * If the level set in the log as manipulator is lower than the level set with \c set_level then that
  * message is ignored.
@@ -42,6 +87,15 @@ Log& Log::debug() {
  */
 void Log::set_level( Log::Level level ) {
     this->level = level;
+}
+
+/**
+ * Adds an ostream where the log will redirect the messages (can be called many times).
+ *
+ * \param os Output stream to register. 
+ */
+void Log::add_listener( std::ostream& os ) {
+    this->streams.push_back( &os );
 }
 
 /**
@@ -55,9 +109,7 @@ void Log::remove_listeners() {
 /**
  * Implementation of the output operator for stream manipulators.
  */
-Log& Log::operator<<( std::ostream& ( *manipulator )( std::ostream& ) ) {
-    // TODO: use internal vector
-    for( const auto s: this->streams )
-        *s << manipulator;
-    return *this;
+LogStream Log::operator<<( std::ostream& ( *manipulator )( std::ostream& ) ) {
+    Lock lock{ this->fd, Lock::Mode::write };
+    return LogStream{ this->streams, std::move( lock ) } << manipulator;
 }

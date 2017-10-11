@@ -107,7 +107,7 @@ static void _produce_matches( PlayersTable& players,
     IPC::Queue<Match> consumer{ consumer_name, IPC::QueueMode::write };
 
     LOG_DBG << "start producing matches" << endl;
-    
+
     while( !eh.has_to_quit() ) {
         try {
             Match m;
@@ -116,7 +116,7 @@ static void _produce_matches( PlayersTable& players,
     
             consumer.insert( m );
         } catch( const IPC::Error& e ) {
-            // REMOVE!!!
+            // TODO: REMOVE!!!
             LOG << e.what() << endl;
             sleep( 1 );
         }

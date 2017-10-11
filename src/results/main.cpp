@@ -69,15 +69,17 @@ static void _scoreboard( SIGINT_Handler* eh ) {
         for( auto e: scores ) {
             players_per_score.insert( pair<int, player_t>( e.second, e.first ) );
         }
-        
+
         /* displays the scores */
-        LOG << "+---- RANKING ----+" << endl;
-        LOG << "| player | score  |" << endl;
-        LOG << "+-----------------+" << endl;
+        /* gets the logger object to hols the lock while printing the table */
+        LogStream logger = Log::get_instance() << endl
+           << "+---- RANKING ----+" << endl
+           << "| player | score  |" << endl
+           << "+-----------------+" << endl;
         for( auto entry: players_per_score ) {
-            LOG << "| " << setfill(' ') << setw(6) << entry.second << " | " << setfill(' ') << setw(6) << entry.first << " |" << endl;
+            logger = logger << "| " << setfill(' ') << setw(6) << entry.second << " | " << setfill(' ') << setw(6) << entry.first << " |" << endl;
         }
-        LOG << "+-----------------+" << endl;
+        logger << "+-----------------+" << endl;
     }
 }
 
