@@ -13,7 +13,7 @@
  * \param filename The filename to use for the IPC resource for the barrier.
  */
 void IPC::Barrier::Create( const std::string& filename ) {
-    key_t key = ftok( filename.c_str(), 0 );
+    key_t key = ftok( filename.c_str(), 'a' );
     if( key < 0 )
         throw IPC::Barrier::Error( static_cast<std::string>( "ftok: " ) + strerror( errno ) );
 
@@ -31,7 +31,7 @@ void IPC::Barrier::Create( const std::string& filename ) {
  * \param filename Filename of the barrier to destroy.
  */
 void IPC::Barrier::Destroy( const std::string& filename ) {
-    key_t key = ftok( filename.c_str(), 0 );
+    key_t key = ftok( filename.c_str(), 'a' );
     if( key < 0 ) {
         LOG_DBG << strerror( errno );
         return;
@@ -56,7 +56,7 @@ void IPC::Barrier::Destroy( const std::string& filename ) {
  * \param n Number of processes to barrier.
  */
 IPC::Barrier::Barrier( const std::string& filename, size_t n ) : n{n} {
-    key_t key = ftok( filename.c_str(), 0 );
+    key_t key = ftok( filename.c_str(), 'a' );
     if( key < 0 )
         throw IPC::Barrier::Error( static_cast<std::string>( "ftok: " ) + strerror( errno ) );
 

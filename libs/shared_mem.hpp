@@ -67,7 +67,7 @@ namespace IPC {
  * \param filename File associated to the resource.
  */
 template <typename T> void IPC::SharedMem<T>::Create( const std::string& filename, size_t n ) {
-    key_t key = ftok( filename.c_str(), 0 );
+    key_t key = ftok( filename.c_str(), 'a' );
     if( key == -1 )
         throw IPC::SharedMemError( "ftok: " + static_cast<std::string>( strerror( errno ) ) );
 
@@ -85,7 +85,7 @@ template <typename T> void IPC::SharedMem<T>::Create( const std::string& filenam
  * \param filename File associated to the resource.
  */
 template <typename T> void IPC::SharedMem<T>::Destroy( const std::string& filename ) {
-    key_t key = ftok( filename.c_str(), 0 );
+    key_t key = ftok( filename.c_str(), 'a' );
     if( key == -1 ) {
         LOG_DBG << strerror( errno ) << std::endl;
         return;
@@ -110,7 +110,7 @@ template <typename T> void IPC::SharedMem<T>::Destroy( const std::string& filena
  * Constructor implementation.
  */
 template <typename T> IPC::SharedMem<T>::SharedMem( const std::string& filename, size_t n ) : n(n) {
-    key_t key = ftok( filename.c_str(), 0 );
+    key_t key = ftok( filename.c_str(), 'a' );
     if( key == -1 )
         throw IPC::SharedMemError( "ftok: " + static_cast<std::string>( strerror( errno ) ) );
 
