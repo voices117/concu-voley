@@ -25,8 +25,10 @@ enum class PlayerState {
 
 /** Forward declaration. */
 class PlayersTable;
+class PlayersRO;
 
 class Player {
+    friend class PlayerRO;
     friend class PlayersTable;
 
 public:
@@ -41,7 +43,7 @@ public:
         other.pairs = nullptr;
         other.num_pairs = nullptr;
     }
-    ~Player() {}
+    virtual ~Player() {}
 
     void operator=( Player& other ) = delete;
     void operator=( const Player& other ) = delete;
@@ -50,7 +52,7 @@ public:
     player_t id;
     
     /** Returns \c true if has player with the other player. */
-    bool has_played_with( Player& other ) const;
+    bool has_played_with( const Player& other ) const;
     
     void set_state( PlayerState new_state );
     PlayerState get_state();
@@ -63,7 +65,7 @@ public:
 
     bool operator==( Player& other ) { return this->id == other.id; }
     
-private:
+protected:
     Player( player_t id, size_t *data ) {
         this->id = id;
         this->state = &data[0];
@@ -79,6 +81,41 @@ private:
 
     /** Number of pairs this player had. */
     size_t *num_pairs{nullptr};
+};
+
+
+/**
+ * Read-only player interface.
+ * Locks the table while the object is alive.
+ */
+class PlayerRO {
+    friend class PlayersTable;
+
+public:
+    PlayerRO( PlayerRO&& other ) : player(std::move( other.player)) {}
+    ~PlayerRO() {}
+    
+    void operator=( PlayerRO& other ) = delete;
+    void operator=( const PlayerRO& other ) = delete;
+    
+    /** The ID of the player represented. */
+    player_t id;
+    
+    /** Returns \c true if has player with the other player. */
+    bool has_played_with( const PlayerRO& other ) const { return this->player.has_played_with( other.player ); }
+    bool has_played_with( const Player& other ) const { return this->player.has_played_with( other ); }
+    
+    PlayerState get_state() { return this->player.get_state(); }
+    
+    /** Returns the number of matches played. */
+    size_t num_matches() const { return this->player.num_matches(); }
+    
+    bool operator==( PlayerRO& other ) { return this->id == other.id; }
+    
+protected:
+    PlayerRO( player_t id, size_t *data ) : player(id, data) {} 
+    Player player;
+
 };
 
 
@@ -112,6 +149,7 @@ public:
     /* query */
     void add_player();
     Player get_player( player_t id );
+    PlayerRO get_player_ro( player_t id );
     size_t size();
     
     /* iteration */

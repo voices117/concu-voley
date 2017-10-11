@@ -56,6 +56,21 @@ Player PlayersTable::get_player( player_t id ) {
     return p;
 }
 
+
+/**
+ * Gets a player from the table.
+ * 
+ * \param id ID of the player.
+ * \return Player associated to the given ID.
+ */
+PlayerRO PlayersTable::get_player_ro( player_t id ) {
+    if( id == 0 ) {
+        throw IPC::Error( "Invalid player id" );
+    }
+
+    return PlayerRO{ id, this->get_ptr( id ) };
+}
+
 /**
  * Returns the number if players in the table.
  * 
@@ -113,7 +128,7 @@ bool PlayersTable::iterator::operator!=( PlayersTable::iterator& other ) {
  */
 
 
-bool Player::has_played_with( Player& other ) const {
+bool Player::has_played_with( const Player& other ) const {
     for( size_t i = 0; i < *this->num_pairs; i++ ) {
         if( this->pairs[i] == other.id ) {
             return true;
