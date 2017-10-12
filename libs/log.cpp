@@ -46,9 +46,6 @@ Log& Log::get_instance() {
  * Instance constructor.
  */
 Log::Log() {
-    // TODO: cout should not be automatically registered
-    this->streams.push_back( &std::cout );
-
     this->fd = open( LOG_LOCK_FILE, O_RDWR | O_TRUNC | O_CREAT, 0644 );
     if( this->fd < 0 ) {
         throw IPC::Error( "Could not open log file: " + static_cast<string>( strerror( errno ) ) );

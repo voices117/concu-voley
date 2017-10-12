@@ -122,7 +122,7 @@ void IPC::Barrier::wait() {
 
     int rv = semop( this->semid, &sops, 1 );
     if( rv < 0 )
-        throw IPC::Barrier::Error( static_cast<string>( "wait: " ) + strerror( errno ) );
+        throw IPC::Barrier::Error( static_cast<string>( "barrier wait: " ) + strerror( errno ) );
 }
 
 /**
@@ -138,7 +138,7 @@ void IPC::Barrier::signal() {
 
     int rv = semop( this->semid, &sops, 1 );
     if( rv < 0 )
-        throw IPC::Barrier::Error( static_cast<string>( "signal" ) + strerror( errno ) );
+        throw IPC::Barrier::Error( static_cast<string>( "barrier signal" ) + strerror( errno ) );
 }
 
 /**

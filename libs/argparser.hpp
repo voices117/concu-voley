@@ -9,6 +9,8 @@
 #include <typeinfo>
 #include <vector>
 
+using std::size_t;
+
 
 /**
  * Gets an option from an argument parser.
@@ -52,6 +54,9 @@ public:
 
     /** Returns \c true if the given option is present. */
     bool is_present( const std::string& option ) const;
+
+    /** Counts the number of times an option appeared. */
+    size_t count( const std::string& option ) const;
     
     /** DO NOT USE: use macro \a get_option or \a get_optional instead. */
     template<typename T> T _get_option( const std::string& option, const std::string& type ) const;
@@ -156,6 +161,22 @@ int ArgParser::opt_index( const std::string& option ) const {
 
     /* not found */
     return -1;
+}
+
+
+/**
+ * Counts the number of times an option appeared in the command line arguments.
+ * 
+ * \param option Option name.
+ */
+size_t ArgParser::count( const std::string& option ) const {
+    size_t count = 0;
+    for( int i = 0; i < this->argc; i++ ) {
+        if( std::string( this->argv[i] ) == option ) {
+            count += 1;
+        }
+    }
+    return count;
 }
 
 

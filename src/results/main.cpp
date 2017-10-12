@@ -86,16 +86,24 @@ static void _scoreboard( SIGINT_Handler* eh ) {
 
 int main( int argc, const char *argv[] ) {
     int rv = 0;
-    Log::get_instance().set_level( Log::Level::debug );
 
     try {
-        LOG_DBG << "begin" << endl;
-
+        
         ArgParser p{ argc, argv };
-
+        
         auto max_players = p.get_option( "--max-players", size_t );
         auto max_matches = p.get_option( "--max-matches", size_t );
+        
+        size_t verbosity = p.count( "-v" );
+        if( verbosity >= 1 ) {
+            Log::get_instance().add_listener( std::cout );
+        }
+        if( verbosity >= 2 ) {
+            Log::get_instance().set_level( Log::Level::debug );
+        }
 
+        LOG_DBG << "begin" << endl;
+        
         /* handles signals */
         SIGINT_Handler eh;
         SignalHandler::get_instance()->add_handler( SIGINT, &eh );

@@ -101,9 +101,10 @@ void _consume_matches( int row, SIGINT_Handler& eh, const string& input, const s
 
             out.insert( r );
         } catch( IPC::QueueError& e ) {
-            LOG << e.what() << endl;
+            LOG << "Queue error: " << e.what() << endl;
         } catch( IPC::Barrier::Error& e ) {
-            LOG << e.what() << endl;
+            LOG << "Barrier error: " << e.what() << endl;
+            return;
         } catch ( IPC::QueueEOF& e ) {
             /* if the queue was closed, exits */
             return;
@@ -131,17 +132,9 @@ void _create_courts( int nrows,
 
     /* creates a pool of sub-processes, one for each court */
     for( int i = 0; i < nrows; i++ ) {
-        pid_t pgid = -1;
         for( int j = 0; j < ncols; j++ ) {
             auto callback = std::bind( _consume_matches, i, eh, input, output );
             childs.push_back( IPC::Process{ callback } );
-            if( pgid == -1 ) {
-                IPC::Process& proc = childs.back();
-                pgid = proc.get_pid();
-            } else {
-                IPC::Process& proc = childs.back();
-                proc.set_group( pgid );
-            }
         }
     }
 }
@@ -149,11 +142,9 @@ void _create_courts( int nrows,
 
 int main( int argc, const char *argv[] ) {
     int rv = 0;
-    Log::get_instance().set_level( Log::Level::debug );
 
     try {
-        LOG_DBG << "begin" << endl;
-
+        
         /* parses the options from the command line arguments */
         ArgParser p{ argc, argv };
         auto nrows = p.get_option( "--rows", int );
@@ -161,6 +152,16 @@ int main( int argc, const char *argv[] ) {
         auto input = p.get_optional( "--in", INPUT, string );
         auto output = p.get_optional( "--out", OUTPUT, string );
         
+        size_t verbosity = p.count( "-v" );
+        if( verbosity >= 1 ) {
+            Log::get_instance().add_listener( std::cout );
+        }
+        if( verbosity >= 2 ) {
+            Log::get_instance().set_level( Log::Level::debug );
+        }
+
+        LOG_DBG << "begin" << endl;
+
         /* handles signals */
         SIGINT_Handler eh;
         SignalHandler::get_instance()->add_handler( SIGINT, &eh );
