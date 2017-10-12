@@ -5,8 +5,10 @@
 #include "log.hpp"
 #include "match.hpp"
 #include "player.hpp"
+#include "process.hpp"
 #include "shared_mem.hpp"
 #include "sigint_handler.hpp"
+#include "utils.hpp"
 #include <errno.h>
 #include <iostream>
 #include <string.h>
@@ -20,8 +22,10 @@
 using std::string;
 using std::size_t;
 using std::endl;
-using IPC::Resource;
 using std::vector;
+using IPC::Resource;
+using IPC::Barrier;
+using IPC::Process;
 
 
 /** The filename of the IPC queue where the teams for a match are sent to play. */
@@ -131,6 +135,51 @@ static void _players_spawner( PlayersTable& players ) {
 }
 
 
+static void _start_tides( int rows, const string& filename, SIGINT_Handler *eh ) {
+    int tide = 0;
+    vector<Barrier> tides_barriers;
+
+    /* gets the barrier objects */
+    for( int c = 32; c < 32 + rows; c++ ) {
+        tides_barriers.push_back( Barrier{ IPC::Key{ filename, ( char )c } } );
+    }
+
+    /* increases/descreses the tide randomly */
+    while( !eh->has_to_quit() ) {
+        if( sleep( 4 ) ) {
+            continue;
+        }
+
+        /* up or down? */
+        bool up = true;
+        if( Utils::rand_int( 1, 2 ) == 1 ) {
+            up = false;
+        }
+
+        if( up && tide >= rows - 1 ) {
+            up = false;
+        } else if( !up && tide == 0 ) {
+            up = true;
+        }
+
+        if( up ) {
+            /* makes the court processes wait until the tide goes down */
+            
+            LOG << "~~~~~~~~ tide up ~~~~~~~~" << endl;
+            tides_barriers[tide].set( 1 );
+            tide += 1;
+        } else {
+            tide -= 1;
+            
+            /* let's the processes continue */
+            tides_barriers[tide].signal();
+            LOG << "~~~~~~~ tide down ~~~~~~~" << endl;
+        }
+
+    }
+}
+
+
 int main( int argc, const char *argv[] )
 {
     int rv = 0;
@@ -143,7 +192,7 @@ int main( int argc, const char *argv[] )
 
         auto max_players = p.get_option( "--max-players", size_t );
         auto max_matches = p.get_option( "--max-matches", size_t );
-        //auto rows = p.get_option( "--rows", size_t );
+        int rows = p.get_option( "--rows", int );
         //auto cols = p.get_option( "--cols", size_t );
 
         /* signal handlers */
@@ -152,9 +201,15 @@ int main( int argc, const char *argv[] )
         SignalHandler::get_instance()->add_handler( SIGPIPE, &eh );
         
         /* creates the IPC resources */
-        Resource<IPC::Queue<Match>> match_q{ MATCH_QUEUE };
-        Resource<IPC::Queue<MatchResult>> result_q{ RESULTS_QUEUE };
+        Resource<IPC::Queue<Match>, string> match_q{ MATCH_QUEUE };
+        Resource<IPC::Queue<MatchResult>, string> result_q{ RESULTS_QUEUE };
         Resource<PlayersTable> players_res{ argv[0], max_players * 2, max_matches };
+        vector<Resource<Barrier>> tides_barriers;
+
+        /* creates a barrier for each row */
+        for( int c = 32; c < 32 + rows; c++ ) {
+            tides_barriers.push_back( Resource<Barrier>{ IPC::Key{ argv[0], (char)c }, 0 } );
+        }
 
         /* the table has space for 2*M players */
         PlayersTable players{ argv[0], max_players * 2, max_matches };
@@ -163,6 +218,8 @@ int main( int argc, const char *argv[] )
         _players_spawner( players );
         _start_match_simulator( argc, argv );
         _start_results_processor( argc, argv );
+
+        Process tides_proc{ [rows, argv, &eh](){ _start_tides( rows, argv[0], &eh ); } };
 
         _produce_matches( players, MATCH_QUEUE, eh );
 
@@ -178,6 +235,8 @@ int main( int argc, const char *argv[] )
     } catch( const IPC::SharedMemError& e ) {
         LOG << "Shared memory error: " << e.what() << endl;
         rv = 2;
+    } catch( const IPC::Process::Exit& e ) {
+        /* does nothing */
     } catch( const IPC::Error& e ) {
         LOG << "IPC error: " << e.what() << endl;
         rv = 3;

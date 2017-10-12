@@ -30,11 +30,11 @@ namespace IPC {
     public:
         
         /** Static methods to create and destroy shared memory resources. */
-        static void Create( const string& filename, size_t n );
-        static void Destroy( const string& filename );
+        static void Create(IPC::Key key, size_t n );
+        static void Destroy(IPC::Key key );
         
         /** Class methods. */
-        SharedMem( const string& filename, size_t n );
+        SharedMem(IPC::Key key, size_t n );
         ~SharedMem();
 
         void write( size_t index, const T* elems, size_t num_elems );
@@ -64,15 +64,11 @@ namespace IPC {
 /**
  * Creates a shared memory resource in the OS.
  * 
- * \param filename File associated to the resource.
+ * \param key Key associated to the resource.
  */
-template <typename T> void IPC::SharedMem<T>::Create( const std::string& filename, size_t n ) {
-    key_t key = ftok( filename.c_str(), 'a' );
-    if( key == -1 )
-        throw IPC::SharedMemError( "ftok: " + static_cast<std::string>( strerror( errno ) ) );
-
+template <typename T> void IPC::SharedMem<T>::Create( IPC::Key key, size_t n ) {
     /* gets the resource ID */
-    int shmid = shmget( key, sizeof( T ) * n, 0644 | IPC_CREAT | IPC_EXCL );
+    int shmid = shmget( key.value, sizeof( T ) * n, 0644 | IPC_CREAT | IPC_EXCL );
     if( shmid < 0 )
         throw IPC::SharedMemError( "create shmget: " + static_cast<std::string>( strerror( errno ) ) );
 
@@ -82,17 +78,11 @@ template <typename T> void IPC::SharedMem<T>::Create( const std::string& filenam
 /**
  * Destroys a shared memory resource (see \c Create).
  * 
- * \param filename File associated to the resource.
+ * \param key Key associated to the resource.
  */
-template <typename T> void IPC::SharedMem<T>::Destroy( const std::string& filename ) {
-    key_t key = ftok( filename.c_str(), 'a' );
-    if( key == -1 ) {
-        LOG_DBG << strerror( errno ) << std::endl;
-        return;
-    }
-
+template <typename T> void IPC::SharedMem<T>::Destroy( IPC::Key key ) {
     /* gets the resource ID */
-    int shmid = shmget( key, sizeof( T ), 0644 );
+    int shmid = shmget( key.value, sizeof( T ), 0644 );
     if( shmid < 0 ) {
         LOG_DBG << strerror( errno ) << std::endl;
         return;
@@ -109,13 +99,9 @@ template <typename T> void IPC::SharedMem<T>::Destroy( const std::string& filena
 /**
  * Constructor implementation.
  */
-template <typename T> IPC::SharedMem<T>::SharedMem( const std::string& filename, size_t n ) : n(n) {
-    key_t key = ftok( filename.c_str(), 'a' );
-    if( key == -1 )
-        throw IPC::SharedMemError( "ftok: " + static_cast<std::string>( strerror( errno ) ) );
-
+template <typename T> IPC::SharedMem<T>::SharedMem( IPC::Key key, size_t n ) : n(n) {
     /* gets the resource ID */
-    int shmid = shmget( key, sizeof( T ) * n, 0644 );
+    int shmid = shmget( key.value, sizeof( T ) * n, 0644 );
     if( shmid < 0 )
         throw IPC::SharedMemError( "shmget: " + static_cast<std::string>( strerror( errno ) ) );
 

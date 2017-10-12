@@ -24,6 +24,42 @@ static const string OUTPUT = "/tmp/match_out";
 
 
 /**
+ * Returns a random (but valid) result of a voley match.
+ * 
+ * \return The sets won by each team.
+ */
+static std::pair<int, int> _rand_result() {
+    int result = Utils::rand_int( 1, 4 );
+
+    int team1_sets, team2_sets;
+    switch( result ) {
+        /* team 1 won 3:0 or 3:1 */
+        case 1:
+            team1_sets = 3;
+            team2_sets = Utils::rand_int( 0, 1 );
+            break;
+        /* team 2 won 3:0 or 3:1 */
+        case 2:
+            team1_sets = Utils::rand_int( 0, 1 );
+            team2_sets = 3;
+            break;
+        /* team 1 won 3:2 */
+        case 3:
+            team1_sets = 3;
+            team2_sets = 2;
+            break;
+        /* team 2 won 3:2 */
+        case 4:
+            team1_sets = 2;
+            team2_sets = 3;
+            break;
+    }
+
+    return std::pair<int, int>( team1_sets, team2_sets );
+}
+
+
+/**
  * Reads from the input queue and simulates voley matches using the players
  * read from the queue.
  * 
@@ -35,15 +71,20 @@ static const string OUTPUT = "/tmp/match_out";
 void _consume_matches( int row, SIGINT_Handler& eh, const string& input, const string& output ) {
     IPC::Queue<Match> in( input, IPC::QueueMode::read, true );
     IPC::Queue<MatchResult> out( output, IPC::QueueMode::write, true );
-    
+
+    /* gets the barrier that corresponds to this row */
+    IPC::Barrier tide{ IPC::Key{ "./target/main", ( char )( 32 + row ) } };  // TODO: filename!
+
     while( !eh.has_to_quit() ) {
         try {
+            tide.wait();
+            
             Match m = in.remove();
 
-            int match_duration = Utils::rand_int( 1, 3 );
-            LOG << "Match: " << m << " taking " << match_duration << " seconds" << endl;
+            int match_duration = Utils::rand_int( 3, 6 );
+            LOG << "Match: " << m << " in row " << row << " taking " << match_duration << " seconds" << endl;
             unsigned int sleep_rv = sleep( match_duration );
-            
+
             MatchResult r;
             r.match = m;
 
@@ -53,33 +94,15 @@ void _consume_matches( int row, SIGINT_Handler& eh, const string& input, const s
             } else {
                 r.status = Status::played;
 
-                int result = Utils::rand_int( 1, 4 );
-                switch( result ) {
-                    /* team 1 won 3:0 or 3:1 */
-                    case 1:
-                        r.team1_sets = 3;
-                        r.team2_sets = Utils::rand_int( 0, 1 );
-                        break;
-                    /* team 2 won 3:0 or 3:1 */
-                    case 2:
-                        r.team1_sets = Utils::rand_int( 0, 1 );
-                        r.team2_sets = 3;
-                        break;
-                    /* team 1 won 3:2 */
-                    case 3:
-                        r.team1_sets = 3;
-                        r.team2_sets = 2;
-                        break;
-                    /* team 2 won 3:2 */
-                    case 4:
-                        r.team1_sets = 2;
-                        r.team2_sets = 3;
-                        break;
-                }
+                auto team_sets = _rand_result();
+                r.team1_sets = team_sets.first;
+                r.team2_sets = team_sets.second;
             }
 
             out.insert( r );
         } catch( IPC::QueueError& e ) {
+            LOG << e.what() << endl;
+        } catch( IPC::Barrier::Error& e ) {
             LOG << e.what() << endl;
         } catch ( IPC::QueueEOF& e ) {
             /* if the queue was closed, exits */
@@ -98,8 +121,8 @@ void _consume_matches( int row, SIGINT_Handler& eh, const string& input, const s
  * \param input The name of the output Queue.
  * \param eh Events handler.
  */
-void _create_courts( size_t nrows,
-                     size_t ncols,
+void _create_courts( int nrows,
+                     int ncols,
                      const string& input,
                      const string& output,
                      SIGINT_Handler& eh ) {
@@ -107,14 +130,18 @@ void _create_courts( size_t nrows,
     std::vector<IPC::Process> childs;
 
     /* creates a pool of sub-processes, one for each court */
-    for( size_t i = 0; i < nrows; i++ ) {
-        for( size_t j = 0; j < ncols; j++ ) {
-            auto callback = std::bind( _consume_matches,
-                                       i,
-                                       eh,
-                                       input,
-                                       output );
+    for( int i = 0; i < nrows; i++ ) {
+        pid_t pgid = -1;
+        for( int j = 0; j < ncols; j++ ) {
+            auto callback = std::bind( _consume_matches, i, eh, input, output );
             childs.push_back( IPC::Process{ callback } );
+            if( pgid == -1 ) {
+                IPC::Process& proc = childs.back();
+                pgid = proc.get_pid();
+            } else {
+                IPC::Process& proc = childs.back();
+                proc.set_group( pgid );
+            }
         }
     }
 }
@@ -129,8 +156,8 @@ int main( int argc, const char *argv[] ) {
 
         /* parses the options from the command line arguments */
         ArgParser p{ argc, argv };
-        auto nrows = p.get_option( "--rows", size_t );
-        auto ncols = p.get_option( "--cols", size_t );
+        auto nrows = p.get_option( "--rows", int );
+        auto ncols = p.get_option( "--cols", int );
         auto input = p.get_optional( "--in", INPUT, string );
         auto output = p.get_optional( "--out", OUTPUT, string );
         

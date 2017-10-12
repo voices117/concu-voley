@@ -29,13 +29,14 @@ namespace IPC {
         };
 
         /** Static methods used to create and destroy the IPC resources */
-        static void Create( const std::string& s );
-        static void Destroy( const std::string& s );
+        static void Create( IPC::Key key, size_t n );
+        static void Create( IPC::Key key );
+        static void Destroy( IPC::Key key );
         
         /** Creates a barrier object an intializes the barrier */
-        explicit Barrier( const std::string& filename, size_t n );
+        Barrier( IPC::Key key, size_t n );
         /** Creates a barrier object (already initialized by another process) */
-        explicit Barrier( const std::string& filename );
+        Barrier( IPC::Key key );
 
         Barrier( const Barrier& other );
         Barrier( Barrier&& other );
@@ -46,6 +47,9 @@ namespace IPC {
         void wait();
         /** Signals that the process reached the barrier. */
         void signal();
+        /** Sets the barrier to the original value. */
+        void reset();
+        void set( size_t n );
 
     private:
         /** Number of processes to barrier */

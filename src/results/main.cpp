@@ -103,7 +103,7 @@ int main( int argc, const char *argv[] ) {
         SignalHandler::get_instance()->add_handler( SIGPIPE, &eh );
 
         /* allocates resources */
-        Resource<IPC::Queue<MatchResult>> redirect{ REDIRECT_QUEUE };
+        Resource<IPC::Queue<MatchResult>, string> redirect{ REDIRECT_QUEUE };
         
         /* creates the scroreboard process */
         IPC::Process scoreboard( [&eh]() { _scoreboard( &eh ); } );

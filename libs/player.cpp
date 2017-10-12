@@ -16,14 +16,14 @@ using IPC::SharedMem;
 /**
  * Creates a shared table that holds the players state.
  * 
- * \param filename The filename of the shared resource.
+ * \param key The key of the shared resource.
  */
-void PlayersTable::Create( const string& filename, size_t max_players, size_t max_matches ) {
+void PlayersTable::Create( IPC::Key key, size_t max_players, size_t max_matches ) {
     
     size_t size = PLAYERS_TABLE_SIZE( max_players, max_matches );
 
-    SharedMem<size_t>::Create( filename, size );
-    SharedMem<size_t> mem{ filename, size };
+    SharedMem<size_t>::Create( key, size );
+    SharedMem<size_t> mem{ key, size };
 
     /* initialize to zero */
     mem.set_zero();
@@ -32,10 +32,10 @@ void PlayersTable::Create( const string& filename, size_t max_players, size_t ma
 /**
  * Destroys the players table shared resource.
  * 
- * \param filename The filname of the shared resource.
+ * \param key The key of the shared resource.
  */
-void PlayersTable::Destroy( const string& filename ) {
-    SharedMem<size_t>::Destroy( filename );
+void PlayersTable::Destroy( IPC::Key key ) {
+    SharedMem<size_t>::Destroy( key );
 }
 
 
@@ -43,9 +43,9 @@ void PlayersTable::Destroy( const string& filename ) {
  * Constructor implementation.
  * 
  */
-PlayersTable::PlayersTable( const string& filename, size_t max_players, size_t max_matches ) : max_players(max_players),
+PlayersTable::PlayersTable( IPC::Key key, size_t max_players, size_t max_matches ) : max_players(max_players),
                                                                                                      max_matches(max_matches),
-                                                                                                     storage(filename, PLAYERS_TABLE_SIZE( max_players, max_matches ) ) {
+                                                                                                     storage(key, PLAYERS_TABLE_SIZE( max_players, max_matches ) ) {
 }
 
 /**

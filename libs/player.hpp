@@ -147,10 +147,10 @@ public:
         PlayersTable* table{nullptr};
     };
 
-    static void Create( const std::string& filename, size_t max_players, size_t max_matches );
-    static void Destroy( const std::string& filename );
+    static void Create( IPC::Key key, size_t max_players, size_t max_matches );
+    static void Destroy( IPC::Key key );
     
-    PlayersTable( const std::string& filename, size_t max_players, size_t max_matches );
+    PlayersTable( IPC::Key key, size_t max_players, size_t max_matches );
     ~PlayersTable();
     
     /* query */

@@ -6,46 +6,52 @@
 #include <unistd.h>
 #include <utility>
 
+using std::endl;
+using std::string;
+
 
 /**
  * Creates a new Barrier resource
  * 
  * \param filename The filename to use for the IPC resource for the barrier.
  */
-void IPC::Barrier::Create( const std::string& filename ) {
-    key_t key = ftok( filename.c_str(), 'a' );
-    if( key < 0 )
-        throw IPC::Barrier::Error( static_cast<std::string>( "ftok: " ) + strerror( errno ) );
-
+void IPC::Barrier::Create( IPC::Key key ) {
     /* creates the semaphore */
-    int semid = semget( key, 1, 0644 | IPC_CREAT | IPC_EXCL );
+    int semid = semget( key.value, 1, 0644 | IPC_CREAT | IPC_EXCL );
     if( semid < 0 )
-        throw IPC::Barrier::Error( static_cast<std::string>( "semget: " ) + strerror( errno ) );
+        throw IPC::Barrier::Error( static_cast<string>( "semget: " ) + strerror( errno ) );
 
-    LOG_DBG << "semid: " << semid << std::endl;
+    LOG_DBG << "semid: " << semid << endl;
+}
+
+void IPC::Barrier::Create( IPC::Key key, size_t n ) {
+    Barrier::Create( key );
+
+    /* opens the semaphore (expecting it's already created) */
+    int semid = semget( key.value, 1, 0644 );
+    if( semid < 0 )
+        throw IPC::Barrier::Error( static_cast<string>( "semget: " ) + strerror( errno ) );
+
+    /* initializes the semaphore */
+    if( semctl( semid, 0, SETVAL, n ) )
+        throw IPC::Barrier::Error( static_cast<string>( "semctl: ") + strerror( errno ) );
 }
 
 /**
  * Destroys a barrier created before, deallocating the OS resources.
  * 
  * \param filename Filename of the barrier to destroy.
+ * \param proj_id  ASCII char to get the token.
  */
-void IPC::Barrier::Destroy( const std::string& filename ) {
-    key_t key = ftok( filename.c_str(), 'a' );
-    if( key < 0 ) {
-        LOG_DBG << strerror( errno );
-        return;
-    }
-
+void IPC::Barrier::Destroy( IPC::Key key ) {
     /* gets the semaphore */
-    int semid = semget( key, 1, 0644 );
+    int semid = semget( key.value, 1, 0644 );
     if( semid < 0 ) {
-        LOG_DBG << strerror( errno );
+        LOG_DBG << strerror( errno ) << " - key=" << key << endl;
         return;
     }
 
-    LOG_DBG << "destroy: " << semid << std::endl;
-
+    LOG_DBG << "destroy: " << semid << " - key=" << key << endl;
     semctl( semid, 0, IPC_RMID, NULL );
 }
 
@@ -55,19 +61,11 @@ void IPC::Barrier::Destroy( const std::string& filename ) {
  *
  * \param n Number of processes to barrier.
  */
-IPC::Barrier::Barrier( const std::string& filename, size_t n ) : n{n} {
-    key_t key = ftok( filename.c_str(), 'a' );
-    if( key < 0 )
-        throw IPC::Barrier::Error( static_cast<std::string>( "ftok: " ) + strerror( errno ) );
-
-    /* opens the semaphore (expecting it's already created) */
-    this->semid = semget( key, 1, 0644 );
-    if( this->semid < 0 )
-        throw IPC::Barrier::Error( static_cast<std::string>( "semget: " ) + strerror( errno ) );
+IPC::Barrier::Barrier( IPC::Key key, size_t n ) : Barrier(key) {
+    this->n = n;
 
     /* initializes the semaphore */
-    if( semctl( this->semid, 0, SETVAL, n ) )
-        throw IPC::Barrier::Error( static_cast<std::string>( "semctl: ") + strerror( errno ) );
+    this->set( n );
 }
 
 /**
@@ -84,6 +82,15 @@ IPC::Barrier::Barrier( const Barrier& other ) : n{other.n}, semid{other.semid}  
 IPC::Barrier::Barrier( Barrier&& other ) : n{other.n}, semid{other.semid} {
     other.semid = -1;
     other.n = 0;
+}
+
+IPC::Barrier::Barrier( IPC::Key key ) {
+    /* opens the semaphore (expecting it's already created) */
+    this->semid = semget( key.value, 1, 0644 );
+    if( this->semid < 0 )
+        throw IPC::Barrier::Error( static_cast<string>( "semget: " ) + strerror( errno ) );
+
+    LOG_DBG << "barrier create: " << this->semid << endl;
 }
 
 /**
@@ -115,7 +122,7 @@ void IPC::Barrier::wait() {
 
     int rv = semop( this->semid, &sops, 1 );
     if( rv < 0 )
-        throw IPC::Barrier::Error( static_cast<std::string>( "wait: " ) + strerror( errno ) );
+        throw IPC::Barrier::Error( static_cast<string>( "wait: " ) + strerror( errno ) );
 }
 
 /**
@@ -131,5 +138,19 @@ void IPC::Barrier::signal() {
 
     int rv = semop( this->semid, &sops, 1 );
     if( rv < 0 )
-        throw IPC::Barrier::Error( static_cast<std::string>( "signal" ) + strerror( errno ) );
+        throw IPC::Barrier::Error( static_cast<string>( "signal" ) + strerror( errno ) );
+}
+
+/**
+ * Sets the barrier to the original value.
+ */
+void IPC::Barrier::reset() {
+    this->set( this->n );
+}
+
+void IPC::Barrier::set( size_t n ) {
+    /* sets the semaphore to the initial value */
+    if( semctl( this->semid, 0, SETVAL, n ) ) {
+        throw IPC::Barrier::Error( static_cast<string>( "semctl: ") + strerror( errno ) );
+    }
 }

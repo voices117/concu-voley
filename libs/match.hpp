@@ -27,8 +27,7 @@ struct Match {
     Team team2;
 
     friend std::ostream& operator<<( std::ostream& os, const Match& m ) {
-        os << "team1(" << m.team1 << ") vs team2(" << m.team2 << ")";
-        return os;
+        return os << "team1(" << m.team1 << ") vs team2(" << m.team2 << ")";
     }
 };
 
@@ -57,8 +56,7 @@ struct MatchResult {
         if( r.status == Status::interrupted ) {
             os << "[interrupted] ";
         }
-        os << r.match << " = (" << r.team1_sets << ", " << r.team2_sets << ")";
-        return os;
+        return os << r.match << " = (" << r.team1_sets << ", " << r.team2_sets << ")";
     }
 };
 

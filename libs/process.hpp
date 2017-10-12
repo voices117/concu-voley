@@ -63,6 +63,10 @@ namespace IPC {
             return *this;
         }
 
+        /* query */
+        pid_t get_pid() { return this->pid; }
+        void set_group( pid_t pgid );
+
     private:
         /* the value returned by fork. */
         pid_t pid{0};
